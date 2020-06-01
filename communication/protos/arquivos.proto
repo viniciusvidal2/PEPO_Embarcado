@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// Namespace para usar no Qt
+package ArquivosMsgProto;
+
+// Mensagem sobre os arquivos na pasta para o cliente esperar por eles na transmissao
+message Arquivos{
+    string pasta = 1;
+    int32 nuvens = 2;
+    int32 imagens = 3;
+}

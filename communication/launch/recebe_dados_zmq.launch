@@ -1,0 +1,11 @@
+<launch>
+
+<!--Nome da pasta com os dados a serem enviados-->
+<arg name="ip_server" default="192.168.0.101"/>
+
+<!--Lancar no de comunicacao que envia tudo para o Desktop por ZMQ-->
+<node name="recebe_dados_zmq_node" pkg="communication" type="recebe_dados_zmq" output="screen">
+    <param name="ip_pepo" value="$(arg ip_server)"/>
+</node>
+
+</launch>

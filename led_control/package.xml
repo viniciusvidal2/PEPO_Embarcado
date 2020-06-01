@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>led_control</name>
+  <version>0.1.0</version>
+  <description>The led_control package</description>
+
+  <maintainer email="vinicius@todo.todo">vinicius</maintainer>
+
+  <license>Apache 2.0</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation sensor_msgs nav_msgs std_msgs geometry_msgs</build_depend>
+  <build_export_depend>message_generation sensor_msgs nav_msgs std_msgs geometry_msgs</build_export_depend>
+  <exec_depend>message_runtime sensor_msgs nav_msgs std_msgs geometry_msgs</exec_depend>
+
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>

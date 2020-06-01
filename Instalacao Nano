@@ -1,0 +1,46 @@
+INSTALAÇÃO DO SISTEMA NA JETSON NANO:
+
+1- Seguir a instalação inicial do Ubuntu 18 na Jetson segundo mostra nesse link:
+https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit
+Imagem:
+https://developer.nvidia.com/jetson-nano-sd-card-image
+
+2- Instalar o ROS Melodic como instruido nesse site:
+https://www.stereolabs.com/blog/ros-and-nvidia-jetson-nano/
+Somente o desktop mesmo, não precisa ser FULL
+
+3- Instalar componentes do ROS que vão precisar da seguinte forma:
+sudo apt install ros-melodic-pcl*
+sudo apt install ros-melodic-opencv*
+
+4- Instalar SDK da livox segundo o repositório no github:
+https://github.com/Livox-SDK/Livox-SDK
+
+5- Instalar image_geometry: sudo apt install ros-melodic-image-geometry
+
+6- Clonar o repositório B9 no branch robo e mandar catkin_make
+
+7- Alterar os arquivos de cmake dos pacotes image_geometry e cvbridge, lá na pasta do ROS em opt, como administrador, para buscar por pasta "opencv4", ao invés de só "opencv".
+
+8- Mandar compilar tudo novamente, deveria encontrar tudo e dar somente uns warnings.
+
+9- Instalar as bibliotecas de python para os servos:
+sudo apt install python3-pip
+sudo pip3 install adafruit-circuitpython-servokit
+Para testar:
+python3
+from adafruit_servokit import ServoKit
+kit = ServoKit(channels=16)
+kit.servo[0].angle = 30
+
+10- Instalar driver do modulo usb wifi:
+sudo apt-get install git build-essential
+git clone git://github.com/ulli-kroll/rtl8188fu
+cd rtl8188fu
+make # Aqui entrar na MakeFile e alterar para amr64 ao inves de $(ARCH)
+sudo make installfw
+sudo modprobe cfg80211
+sudo insmod rtl8188fu.ko
+
+
+
