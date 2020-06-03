@@ -33,13 +33,13 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointT>::Ptr nuvem){
 void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float fx, float fy){
     // Matriz intrinseca e extrinseca
     Matrix3f K;
-    K << fx,  0, image.cols/2.0,
-          0, fy, image.rows/2.0,
-          0,  0,      1      ;
+    K << fx,  0, 973,//image.cols/2.0,
+          0, fy, 536,//image.rows/2.0,
+          0,  0,      1       ;
     MatrixXf Rt(3, 4); // Desenho do antonio - diferenca no frame da camera do laser para a camera
-    Rt << 1, 0, 0,  0.0 ,
+    Rt << 1, 0, 0,  0.01 ,
           0, 1, 0,  0.0448,
-          0, 0, 1,  0.0;
+          0, 0, 1,  0.023;
     MatrixXf P(3, 4);
     P = K*Rt;
 //#pragma omp for

@@ -35,7 +35,7 @@
 #include <Eigen/Core>
 
 #include "../../libraries/include/processcloud.h"
-#include "pepo/comandoObj.h"
+#include "pepo_obj/comandoObj.h"
 
 /// Namespaces
 ///
@@ -106,8 +106,17 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 10); // Z metros de profundidade
+            pass.setFilterLimits(0, 6); // Z metros de profundidade
             pass.filter(*cloud_color);
+            // Tirar distorcao da imagem
+            Mat params = (Mat_<double>(1,5) << 0.0723, -0.1413, -0.0025 -0.0001, 0.0000);
+            Mat Ku     = (Mat_<double>(3,3) << 1133.3,  0.0  , 973,
+                                                  0.0, 1121.6, 536,
+                                                  0.0,  0.0  ,  1.0 );
+            // Tirar distorcao da imagem - fica melhor sim o resultado ou proximo
+            Mat temp_im;
+            undistort(image_ptr->image, temp_im, Ku, params);
+            temp_im.copyTo(image_ptr->image);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1133.3, 1121.6); // Brio
@@ -134,7 +143,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 
 /// Servico para controle de aquisicao
 ///
-bool comando_proceder(pepo::comandoObj::Request &req, pepo::comandoObj::Response &res){
+bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
     if(req.comando == 1){ // Havera mais uma nova aquisicao
         aquisitando = true;
         cont_aquisicao++;
