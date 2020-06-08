@@ -185,6 +185,14 @@ int main(int argc, char **argv)
   parcial  = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
   parcial->header.frame_id  = "pepo";
 
+  // Fixa camera na melhor exposicao possivel na primeira aquisicao
+  ROS_INFO("Ajustando camera na melhor exposicao ...");
+  sleep(3);
+  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=3'");
+  sleep(5);
+  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=1'");
+  ROS_INFO("Exposicao ajustada.");
+
   // Inicia classe de processo de nuvens
   pc = new ProcessCloud(pasta);
 
