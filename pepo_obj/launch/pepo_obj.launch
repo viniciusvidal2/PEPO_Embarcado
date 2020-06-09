@@ -14,7 +14,7 @@
 </node>
 
 <!--Lancar scanner propriamente dito, online-->
-<node name="scanner_obj" pkg="pepo" type="scanner_obj" output="screen">
+<node name="scanner_obj" pkg="pepo_obj" type="scanner_obj" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
 </node>
 

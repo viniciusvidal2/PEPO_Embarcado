@@ -6,9 +6,6 @@
 #include <string>
 #include <math.h>
 
-#include <tf/transform_listener.h>
-#include <tf_conversions/tf_eigen.h>
-
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
 #include <nav_msgs/Odometry.h>
@@ -20,8 +17,6 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
-#include <pcl/filters/conditional_removal.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl_ros/transforms.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -176,6 +171,14 @@ int main(int argc, char **argv)
   parcial  = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
   parcial->header.frame_id  = "pepo";
 
+  // Fixa camera na melhor exposicao possivel na primeira aquisicao
+  ROS_INFO("Ajustando camera na melhor exposicao ...");
+  sleep(3);
+  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=3'");
+  sleep(5);
+  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=1'");
+  ROS_INFO("Exposicao ajustada.");
+
   // Inicia classe de processo de nuvens
   pc = new ProcessCloud(pasta);
 
@@ -183,8 +186,8 @@ int main(int argc, char **argv)
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
-  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 1, laserCallback);
-  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 1, camCallback  );
+  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
+  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
 
   ROS_INFO("Comecando a aquisicao ...");
 
