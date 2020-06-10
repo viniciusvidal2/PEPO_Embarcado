@@ -37,9 +37,9 @@ void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_i
           0, fy, image.rows/2.0,
           0,  0,      1      ;
     MatrixXf Rt(3, 4); // Desenho do antonio - diferenca no frame da camera do laser para a camera
-    Rt << 1, 0, 0,  0.0 ,
+    Rt << 1, 0, 0,  0.01 ,
           0, 1, 0,  0.0448,
-          0, 0, 1,  0.0;
+          0, 0, 1,  0.023;
     MatrixXf P(3, 4);
     P = K*Rt;
 //#pragma omp for

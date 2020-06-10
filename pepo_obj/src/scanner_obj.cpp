@@ -30,7 +30,7 @@
 #include <Eigen/Core>
 
 #include "../../libraries/include/processcloud.h"
-#include "pepo/comandoObj.h"
+#include "pepo_obj/comandoObj.h"
 
 /// Namespaces
 ///
@@ -47,7 +47,7 @@ typedef PointXYZRGB PointT;
 ///
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 300; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 80; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Nuvem de pontos parciais
@@ -114,9 +114,16 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             voxel.filter(*cloud_color);
             // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
-            std::string nome_imagem_atual = "imagem_"+std::to_string(cont_aquisicao);
-            pc->saveImage(image_ptr->image, nome_imagem_atual);
-            pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
+            if(cont_aquisicao < 10){
+              pc->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
+            } else if(cont_aquisicao < 100) {
+              pc->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
+            } else {
+              pc->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
+            }
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;
@@ -129,7 +136,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 
 /// Servico para controle de aquisicao
 ///
-bool comando_proceder(pepo::comandoObj::Request &req, pepo::comandoObj::Response &res){
+bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
     if(req.comando == 1){ // Havera mais uma nova aquisicao
         aquisitando = true;
         cont_aquisicao++;
