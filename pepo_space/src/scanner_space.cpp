@@ -161,9 +161,20 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             pc->transformCloudAndCamServoAngles(cloud_color, p, t, C, q);
             // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d de %zu ...", indice_posicao+1, posicoes_pan.size());
-            std::string nome_imagem_atual = "imagem_"+std::to_string(indice_posicao+1);
-            pc->saveImage(image_ptr->image, nome_imagem_atual);
-            pc->saveCloud(cloud_color, "pf_"+std::to_string(indice_posicao+1));
+            string nome_imagem_atual;
+            if(indice_posicao+1 < 10){
+              nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
+              pc->saveImage(image_ptr->image, nome_imagem_atual);
+              pc->saveCloud(cloud_color, "pf_00"+std::to_string(indice_posicao+1));
+            } else if(indice_posicao+1 < 100) {
+              nome_imagem_atual = "imagem_0"+std::to_string(indice_posicao+1);
+              pc->saveImage(image_ptr->image, nome_imagem_atual);
+              pc->saveCloud(cloud_color, "pf_0"+std::to_string(indice_posicao+1));
+            } else {
+              nome_imagem_atual = "imagem_"+std::to_string(indice_posicao+1);
+              pc->saveImage(image_ptr->image, nome_imagem_atual);
+              pc->saveCloud(cloud_color, "pf_"+std::to_string(indice_posicao+1));
+            }
             /// Adicionar ao vetor a linha correspondente do NVM ///
             // Escreve a linha e armazena
             linhas_nvm[indice_posicao] = pc->escreve_linha_imagem((1133.3 + 1121.6)/2, nome_imagem_atual, C, q); // Brio

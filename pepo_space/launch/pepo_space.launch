@@ -22,7 +22,7 @@
 </node>
 
 <!--Lancar scanner propriamente dito, online-->
-<node name="scanner_space" pkg="pepo" type="scanner_space" output="screen">
+<node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
 </node>
 

@@ -6,9 +6,6 @@
 #include <string>
 #include <math.h>
 
-#include <tf/transform_listener.h>
-#include <tf_conversions/tf_eigen.h>
-
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
 #include <nav_msgs/Odometry.h>
@@ -20,8 +17,6 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/extract_indices.h>
-#include <pcl/filters/conditional_removal.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl_ros/transforms.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -52,7 +47,7 @@ typedef PointXYZRGB PointT;
 ///
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 300; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 80; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Nuvem de pontos parciais
@@ -128,9 +123,16 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             voxel.filter(*cloud_color);
             // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
-            std::string nome_imagem_atual = "imagem_"+std::to_string(cont_aquisicao);
-            pc->saveImage(image_ptr->image, nome_imagem_atual);
-            pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
+            if(cont_aquisicao < 10){
+              pc->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
+            } else if(cont_aquisicao < 100) {
+              pc->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
+            } else {
+              pc->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
+              pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
+            }
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;
@@ -200,8 +202,8 @@ int main(int argc, char **argv)
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
-  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 1, laserCallback);
-  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 1, camCallback  );
+  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
+  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
 
   ROS_INFO("Comecando a aquisicao ...");
 
