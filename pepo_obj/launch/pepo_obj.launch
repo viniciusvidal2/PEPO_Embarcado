@@ -18,4 +18,7 @@
     <param name="pasta" value="$(arg pasta)"/>
 </node>
 
+<!--Lancar no que encaminha dados para a aplicacao desktop-->
+<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
+</node>
 </launch>

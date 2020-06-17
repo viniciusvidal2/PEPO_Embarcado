@@ -74,6 +74,8 @@ ros::ServiceClient comando_motor;
 ros::ServiceClient comando_leds;
 // Testando sincronizar subscribers por mutex
 Mutex m;
+// Publicador de imagem
+ros::Publisher im_pub;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, std::string motor){
@@ -96,6 +98,8 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    // Publicando a imagem para ver o no de comunicacao com o desktop
+    im_pub.publish(*msg);
 }
 
 /// Callback do laser
@@ -325,6 +329,9 @@ int main(int argc, char **argv)
 
     // Inicia classe de processo de nuvens
     pc = new ProcessCloud(pasta);
+
+    // Publicadores
+    im_pub = nh.advertise<sensor_msgs::Image      >("/imagem_obj", 10);
 
     // Subscribers dessincronizados para mensagens de laser, imagem e motores
     ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"                    , 10, laserCallback);

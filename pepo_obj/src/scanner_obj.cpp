@@ -56,6 +56,9 @@ PointCloud<PointXYZ>::Ptr parcial;
 Mutex m;
 // Contador de aquisicoes - usa tambem para salvar no lugar certo
 int cont_aquisicao = 0;
+// Publisher para a nuvem e imagem
+ros::Publisher im_pub;
+ros::Publisher cl_pub;
 
 /// Callback da camera
 ///
@@ -63,6 +66,8 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    // Publicando a imagem para ver o no de comunicacao com o desktop
+    im_pub.publish(*msg);
 }
 
 /// Callback do laser
@@ -133,6 +138,12 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
               pc->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
               pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
+            // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
+            sensor_msgs::PointCloud2 ptc_msg;
+            toROSMsg(*cloud_color, ptc_msg);
+            ptc_msg.header.frame_id = "pepo";
+            ptc_msg.header.stamp = ros::Time::now();
+            cl_pub.publish(ptc_msg);
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;
@@ -184,22 +195,18 @@ int main(int argc, char **argv)
   mkdir(pasta.c_str(), 0777);
 
   // Inicia nuvem parcial acumulada a cada passagem do laser
-  parcial  = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
+  parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
   parcial->header.frame_id  = "pepo";
-
-  // Fixa camera na melhor exposicao possivel na primeira aquisicao
-  ROS_INFO("Ajustando camera na melhor exposicao ...");
-  sleep(3);
-  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=3'");
-  sleep(5);
-  system("gnome-terminal -x sh -c 'v4l2-ctl --set-ctrl=exposure_auto=1'");
-  ROS_INFO("Exposicao ajustada.");
 
   // Inicia classe de processo de nuvens
   pc = new ProcessCloud(pasta);
 
   // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
+
+  // Publicadores
+  im_pub = nh.advertise<sensor_msgs::Image      >("/imagem_obj", 10);
+  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_obj" , 10);
 
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
   ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);

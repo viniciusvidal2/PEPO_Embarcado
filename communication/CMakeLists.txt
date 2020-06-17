@@ -47,3 +47,8 @@ add_executable(recebe_dados_zmq src/recebe_dados_zmq.cpp)
 target_compile_options(recebe_dados_zmq PRIVATE ${OpenMP_FLAGS})
 add_dependencies(recebe_dados_zmq ${catkin_EXPORTED_TARGETS})
 target_link_libraries(recebe_dados_zmq ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${PROTOBUF_LIBRARIES} protos ${ZeroMQ_LIBRARY} ${OpenMP_LIBS})
+
+add_executable(encaminha_dados_desktop src/encaminha_dados_desktop.cpp)
+target_compile_options(encaminha_dados_desktop PRIVATE ${OpenMP_FLAGS})
+add_dependencies(encaminha_dados_desktop ${catkin_EXPORTED_TARGETS})
+target_link_libraries(encaminha_dados_desktop ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${PROTOBUF_LIBRARIES} protos ${ZeroMQ_LIBRARY} ${OpenMP_LIBS})
