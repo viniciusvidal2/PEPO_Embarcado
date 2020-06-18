@@ -40,31 +40,39 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     im_sender.bind("tcp://*:5557");
     // Converte mensagem
     cv_bridge::CvImagePtr im = cv_bridge::toCvCopy(msg, msg->encoding);
-    // Cria objeto do Protobuf
-    string buffer_imagem;
-    Imagem img_proto;
-    img_proto.set_height(im->image.rows);
-    img_proto.set_width(im->image.cols);
-    img_proto.set_name("pepo");
-    Vec3b cor;
-    for(int i=0; i<img_proto.height(); i++){
-        for(int j=0; j<img_proto.width(); j++){
-            cor = im->image.at<Vec3b>(Point(j, i));
-
-            Imagem::Pixel *pix = img_proto.add_pixels();
-            pix->set_b(cor(0));
-            pix->set_g(cor(1));
-            pix->set_r(cor(2));
-            pix->set_u(j);
-            pix->set_v(i);
-        }
-    }
-    // Serializando a mensagem e enviando
-    img_proto.SerializeToString(&buffer_imagem);
-    message_t img_zmq(buffer_imagem.length());
-    memcpy(img_zmq.data(), buffer_imagem.data(), buffer_imagem.length());
+    // Reduz a resolucao e passa para jpeg
+    resize(im->image, im->image, Size(im->image.rows/3, im->image.cols/3));
+    vector<uchar> buffer_imagem;
+    imencode(".jpg", im->image, buffer_imagem);
+    message_t img_zmq;
+    memcpy(img_zmq.data(), buffer_imagem.data(), buffer_imagem.size());
     im_sender.send(img_zmq);
     im_sender.close();
+//    // Cria objeto do Protobuf
+//    string buffer_imagem;
+//    Imagem img_proto;
+//    img_proto.set_height(im->image.rows);
+//    img_proto.set_width(im->image.cols);
+//    img_proto.set_name("pepo");
+//    Vec3b cor;
+//    for(int i=0; i<img_proto.height(); i++){
+//        for(int j=0; j<img_proto.width(); j++){
+//            cor = im->image.at<Vec3b>(Point(j, i));
+
+//            Imagem::Pixel *pix = img_proto.add_pixels();
+//            pix->set_b(cor(0));
+//            pix->set_g(cor(1));
+//            pix->set_r(cor(2));
+//            pix->set_u(j);
+//            pix->set_v(i);
+//        }
+//    }
+//    // Serializando a mensagem e enviando
+//    img_proto.SerializeToString(&buffer_imagem);
+//    message_t img_zmq(buffer_imagem.length());
+//    memcpy(img_zmq.data(), buffer_imagem.data(), buffer_imagem.length());
+//    im_sender.send(img_zmq);
+//    im_sender.close();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
