@@ -35,6 +35,7 @@ typedef PointXYZRGB PointT;
 context_t ctx{1};
 void *context;
 void *im_sender;
+void *cl_sender;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
@@ -43,7 +44,7 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     // Reduz a resolucao e passa para jpeg
     Mat im;
     imptr->image.copyTo(im);
-    resize(im, im, Size(im.rows/3, im.cols/3));
+    resize(im, im, Size(im.cols/3, im.rows/3));
     vector<uchar> buffer_imagem;
     imencode(".jpg", im, buffer_imagem);
     // Envia pelo socket
@@ -51,8 +52,6 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
-    socket_t cl_sender(ctx, ZMQ_PUB);
-    cl_sender.bind("tcp://*:5558");
     // Converter mensagem
     PointCloud<PointT>::Ptr cloud (new PointCloud<PointT>);
     fromROSMsg(*msg, *cloud);
@@ -72,10 +71,10 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
     cloud->clear();
     // Serializando a mensagem e enviando
     cloud_proto.SerializeToString(&buffer_nuvem);
-    message_t nuvem_zmq(buffer_nuvem.length());
-    memcpy(nuvem_zmq.data(), buffer_nuvem.data(), buffer_nuvem.length());
-    cl_sender.send(nuvem_zmq);
-    cl_sender.close();
+    zmq_send(cl_sender, buffer_nuvem.data(), buffer_nuvem.size(), 0);
+//    message_t nuvem_zmq(buffer_nuvem.length());
+//    memcpy(nuvem_zmq.data(), buffer_nuvem.data(), buffer_nuvem.length());
+//    cl_sender.send(nuvem_zmq);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
@@ -84,6 +83,8 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     context = zmq_ctx_new();
+    cl_sender = zmq_socket(context, ZMQ_PUSH);
+    int bind1 = zmq_bind(cl_sender, "tcp://*:5558");
     im_sender = zmq_socket(context, ZMQ_PUSH);
     int bind = zmq_bind(im_sender, "tcp://*:5557");
 
