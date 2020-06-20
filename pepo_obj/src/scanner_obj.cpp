@@ -74,6 +74,14 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 ///
 void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
+    // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
+    //PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
+    //fromROSMsg (*msg, *cloud);
+    //sensor_msgs::PointCloud2 ptc_msg;
+    //toROSMsg(*cloud, ptc_msg);
+    //ptc_msg.header.frame_id = "pepo";
+    //ptc_msg.header.stamp = ros::Time::now();
+    cl_pub.publish(*msg);
     if(aquisitando){
         // Ler a mensagem e acumular na nuvem total por N vezes
         PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
@@ -106,17 +114,8 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 6); // Z metros de profundidade
+            pass.setFilterLimits(0, 8); // Z metros de profundidade
             pass.filter(*cloud_color);
-            // Tirar distorcao da imagem
-            Mat params = (Mat_<double>(1,5) << 0.0723, -0.1413, -0.0025 -0.0001, 0.0000);
-            Mat Ku     = (Mat_<double>(3,3) << 1133.3,  0.0  , 973,
-                                                  0.0, 1121.6, 536,
-                                                  0.0,  0.0  ,  1.0 );
-            // Tirar distorcao da imagem - fica melhor sim o resultado ou proximo
-            Mat temp_im;
-            undistort(image_ptr->image, temp_im, Ku, params);
-            temp_im.copyTo(image_ptr->image);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1133.3, 1121.6); // Brio
@@ -138,12 +137,6 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
               pc->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
               pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
-            // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
-            sensor_msgs::PointCloud2 ptc_msg;
-            toROSMsg(*cloud_color, ptc_msg);
-            ptc_msg.header.frame_id = "pepo";
-            ptc_msg.header.stamp = ros::Time::now();
-            cl_pub.publish(ptc_msg);
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;
@@ -205,8 +198,8 @@ int main(int argc, char **argv)
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
   // Publicadores
-  im_pub = nh.advertise<sensor_msgs::Image      >("/imagem_obj", 10);
-  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_obj" , 10);
+  im_pub = nh.advertise<sensor_msgs::Image      >("/image_obj", 10);
+  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_obj", 10);
 
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
   ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
