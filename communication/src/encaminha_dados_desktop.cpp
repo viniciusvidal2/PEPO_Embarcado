@@ -143,9 +143,6 @@ int main(int argc, char **argv)
     im_sender = zmq_socket(context, ZMQ_PUSH);
     int bind = zmq_bind(im_sender, "tcp://*:5557");
 
-    // Dar um tempo pra tudo iniciar
-    //sleep(10);
-
     // Inicia nuvem parcial acumulada a cada passagem do laser
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     parcial->header.frame_id  = "pepo";

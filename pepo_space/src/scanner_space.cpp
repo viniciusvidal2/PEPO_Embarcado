@@ -140,15 +140,6 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             pass.setFilterFieldName("z");
             pass.setFilterLimits(0, 30); // Z metros de profundidade
             pass.filter(*cloud_color);
-            // Tirar distorcao da imagem
-            Mat params = (Mat_<double>(1,5) << 0.0723, -0.1413, -0.0025 -0.0001, 0.0000);
-            Mat Ku     = (Mat_<double>(3,3) << 1133.3,  0.0  , 973,
-                                                  0.0, 1121.6, 536,
-                                                  0.0,  0.0  ,  1.0 );
-            // Tirar distorcao da imagem - fica melhor sim o resultado ou proximo
-            Mat temp_im;
-            undistort(image_ptr->image, temp_im, Ku, params);
-            temp_im.copyTo(image_ptr->image);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1133.3, 1121.6); // Brio
@@ -331,7 +322,7 @@ int main(int argc, char **argv)
     pc = new ProcessCloud(pasta);
 
     // Publicadores
-    im_pub = nh.advertise<sensor_msgs::Image      >("/imagem_obj", 10);
+    im_pub = nh.advertise<sensor_msgs::Image>("/imagem_obj", 10);
 
     // Subscribers dessincronizados para mensagens de laser, imagem e motores
     ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"                    , 10, laserCallback);

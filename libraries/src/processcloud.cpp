@@ -5,10 +5,6 @@ ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta)
 {
     // Dimensoes da camera USB de entrada
     cam_w = 1920; cam_h = 1080;
-//    // Inicia matriz intrinseca da camera USB - Logitech antiga
-//    K_cam << 1484.701399,    0.000000, float(cam_w)/2,//432.741036,
-//                0.000000, 1477.059238, float(cam_h)/2,//412.362072,
-//                0.000000,    0.000000,   1.000000;
     // Inicia matriz intrinseca da camera USB - Brio
     K_cam << 2182.371971/2,    0.000000, 960,
                 0.000000, 2163.572854/2, 540,
@@ -33,11 +29,11 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointT>::Ptr nuvem){
 void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float fx, float fy){
     // Matriz intrinseca e extrinseca
     Matrix3f K;
-    K << fx,  0, 973,//image.cols/2.0,
-          0, fy, 536,//image.rows/2.0,
+    K << fx,  0, image.cols/2.0,
+          0, fy, image.rows/2.0,
           0,  0,      1       ;
     MatrixXf Rt(3, 4); // Desenho do antonio - diferenca no frame da camera do laser para a camera
-    Rt << 1, 0, 0,  0.01 ,
+    Rt << 1, 0, 0,  0.0 ,
           0, 1, 0,  0.0448,
           0, 0, 1,  0.023;
     MatrixXf P(3, 4);
