@@ -1,0 +1,12 @@
+<launch>
+
+<!--Lancar no do driver camera USB-->
+<node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
+    <param name="cv_cap_prop_frame_width"  value="1920"/>
+    <param name="cv_cap_prop_frame_height" value="1080"/>
+    <param name="cv_cap_prop_brightness"   value="0.10"/>
+    <param name="cv_cap_prop_exposure"     value="0.20"/>
+    <param name="cv_cap_prop_saturation"   value="0.60"/>
+</node>
+
+</launch>

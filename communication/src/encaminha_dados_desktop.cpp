@@ -66,69 +66,69 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
     if(imagem_ok){
-    // Converter mensagem
-    PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
-    fromROSMsg(*msg, *cloud);
-    *parcial += *cloud;
-    // A nuvem ainda nao foi acumulada, frizar isso
-    aquisitar_imagem = true;
-    // Se acumulou o suficiente, trabalhar e encaminhar
-    if(contador_nuvem == 50){ // Rapidinho assim mesmo
-        m.lock();
-        // Injetando cor na nuvem
-        PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
-        cloud_color->resize(parcial->size());
-        #pragma omp parallel for
-        for(size_t i=0; i < cloud_color->size(); i++){
-            cloud_color->points[i].r = 0; cloud_color->points[i].g = 0; cloud_color->points[i].b = 0;
-            cloud_color->points[i].x = parcial->points[i].x;
-            cloud_color->points[i].y = parcial->points[i].y;
-            cloud_color->points[i].z = parcial->points[i].z;
-        }
-        // Poupar memoria da parcial
-        parcial->clear();
-        // Transformando nuvem para o frame da camera
-        pc->transformToCameraFrame(cloud_color);
-        // Filtrar profundidade pra nao vir aquilo tudo de coisa
-        PassThrough<PointT> pass;
-        pass.setInputCloud(cloud_color);
-        pass.setFilterFieldName("z");
-        pass.setFilterLimits(0, 8); // Z metros de profundidade
-        pass.filter(*cloud_color);
-        // Colorir pontos com calibracao default para visualizacao rapida
-        aquisitar_imagem = false;
-        Mat temp_im;
-        imptr->image.copyTo(temp_im);
-        pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1133.3, 1121.6); // Brio
+        // Converter mensagem
+        PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
+        fromROSMsg(*msg, *cloud);
+        *parcial += *cloud;
+        // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
-        // Filtrando por voxels e outliers - essa vai para visualizacao
-        VoxelGrid<PointT> voxel;
-        voxel.setInputCloud(cloud_color);
-        voxel.setLeafSize(0.01, 0.01, 0.01);
-        voxel.filter(*cloud_color);
-        // Zerando contador
-        contador_nuvem = 0;
-        // Cria objeto do protobuf
-        Nuvem cloud_proto;
-        string buffer_nuvem;
-        cloud_proto.set_name("pepo");
-        cloud_proto.set_size(cloud_color->size());
-        PointT cloud_point;
-        for(size_t k=0; k<cloud_color->size(); k++){
-          cloud_point = cloud_color->points[k];
+        // Se acumulou o suficiente, trabalhar e encaminhar
+        if(contador_nuvem == 50){ // Rapidinho assim mesmo
+            m.lock();
+            // Injetando cor na nuvem
+            PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
+            cloud_color->resize(parcial->size());
+#pragma omp parallel for
+            for(size_t i=0; i < cloud_color->size(); i++){
+                cloud_color->points[i].r = 0; cloud_color->points[i].g = 0; cloud_color->points[i].b = 0;
+                cloud_color->points[i].x = parcial->points[i].x;
+                cloud_color->points[i].y = parcial->points[i].y;
+                cloud_color->points[i].z = parcial->points[i].z;
+            }
+            // Poupar memoria da parcial
+            parcial->clear();
+            // Transformando nuvem para o frame da camera
+            pc->transformToCameraFrame(cloud_color);
+            // Filtrar profundidade pra nao vir aquilo tudo de coisa
+            PassThrough<PointT> pass;
+            pass.setInputCloud(cloud_color);
+            pass.setFilterFieldName("z");
+            pass.setFilterLimits(0, 8); // Z metros de profundidade
+            pass.filter(*cloud_color);
+            // Colorir pontos com calibracao default para visualizacao rapida
+            aquisitar_imagem = false;
+            Mat temp_im;
+            imptr->image.copyTo(temp_im);
+            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1133.3, 1121.6); // Brio
+            aquisitar_imagem = true;
+            // Filtrando por voxels e outliers - essa vai para visualizacao
+            VoxelGrid<PointT> voxel;
+            voxel.setInputCloud(cloud_color);
+            voxel.setLeafSize(0.01, 0.01, 0.01);
+            voxel.filter(*cloud_color);
+            // Zerando contador
+            contador_nuvem = 0;
+            // Cria objeto do protobuf
+            Nuvem cloud_proto;
+            string buffer_nuvem;
+            cloud_proto.set_name("pepo");
+            cloud_proto.set_size(cloud_color->size());
+            PointT cloud_point;
+            for(size_t k=0; k<cloud_color->size(); k++){
+                cloud_point = cloud_color->points[k];
 
-          Nuvem::Ponto *p = cloud_proto.add_pontos();
-          p->set_x(cloud_point.x); p->set_y(cloud_point.y); p->set_z(cloud_point.z);
-          p->set_r(cloud_point.r); p->set_g(cloud_point.g); p->set_b(cloud_point.b);
+                Nuvem::Ponto *p = cloud_proto.add_pontos();
+                p->set_x(cloud_point.x); p->set_y(cloud_point.y); p->set_z(cloud_point.z);
+                p->set_r(cloud_point.r); p->set_g(cloud_point.g); p->set_b(cloud_point.b);
+            }
+            cloud_color->clear();
+            // Serializando a mensagem e enviando
+            cloud_proto.SerializeToString(&buffer_nuvem);
+            zmq_send(cl_sender, buffer_nuvem.data(), buffer_nuvem.size(), 0);
+            m.unlock();
+        } else {
+            contador_nuvem++;
         }
-        cloud_color->clear();
-        // Serializando a mensagem e enviando
-        cloud_proto.SerializeToString(&buffer_nuvem);
-        zmq_send(cl_sender, buffer_nuvem.data(), buffer_nuvem.size(), 0);
-        m.unlock();
-    } else {
-        contador_nuvem++;
-    }
     }
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     
     // Subscriber para topicos de imagem e de nuvem
     ros::Subscriber im_sub = nh.subscribe("/image_obj", 10, imagemCallback);
-    ros::Subscriber cl_sub = nh.subscribe("/cloud_obj" , 10, cloudCallback);
+    ros::Subscriber cl_sub = nh.subscribe("/cloud_obj", 10, cloudCallback);
 
     ros::Rate r(2);
     while(ros::ok()){

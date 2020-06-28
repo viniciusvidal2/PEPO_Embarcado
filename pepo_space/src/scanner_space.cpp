@@ -322,7 +322,7 @@ int main(int argc, char **argv)
     pc = new ProcessCloud(pasta);
 
     // Publicadores
-    im_pub = nh.advertise<sensor_msgs::Image>("/imagem_obj", 10);
+    im_pub = nh.advertise<sensor_msgs::Image>("/image_obj", 10);
 
     // Subscribers dessincronizados para mensagens de laser, imagem e motores
     ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"                    , 10, laserCallback);
