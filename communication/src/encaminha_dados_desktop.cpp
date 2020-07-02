@@ -73,7 +73,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
         // Se acumulou o suficiente, trabalhar e encaminhar
-        if(contador_nuvem == 50){ // Rapidinho assim mesmo
+        if(contador_nuvem == 40){ // Rapidinho assim mesmo
             m.lock();
             // Injetando cor na nuvem
             PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
@@ -104,7 +104,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             // Filtrando por voxels e outliers - essa vai para visualizacao
             VoxelGrid<PointT> voxel;
             voxel.setInputCloud(cloud_color);
-            voxel.setLeafSize(0.01, 0.01, 0.01);
+            voxel.setLeafSize(0.03, 0.03, 0.03);
             voxel.filter(*cloud_color);
             // Zerando contador
             contador_nuvem = 0;
