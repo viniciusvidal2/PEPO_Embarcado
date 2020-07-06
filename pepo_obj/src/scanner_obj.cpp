@@ -85,6 +85,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
         aquisitar_imagem = true;
         // Se total acumulado, travar o resto e trabalhar
         if(contador_nuvem == N){
+            cont_aquisicao++;
             m.lock();
             ROS_WARN("Aquisicao %d foi acumulada, processando ...", cont_aquisicao);
             // Vira a variavel de controle de recebimento de imagens e da nuvem
@@ -146,10 +147,9 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
     if(req.comando == 1){ // Havera mais uma nova aquisicao
         aquisitando = true;
-        cont_aquisicao++;
         aquisitar_imagem = true;
         res.result = 1;
-        ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao);
+        ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
     } else if (req.comando == 2) { // Acabamos de aquisitar
         fim_processo = true;
         res.result = 1;
