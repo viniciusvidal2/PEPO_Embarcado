@@ -75,12 +75,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 {
     // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
-    //PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
-    //fromROSMsg (*msg, *cloud);
-    //sensor_msgs::PointCloud2 ptc_msg;
-    //toROSMsg(*cloud, ptc_msg);
-    //ptc_msg.header.frame_id = "pepo";
-    //ptc_msg.header.stamp = ros::Time::now();
     cl_pub.publish(*msg);
     if(aquisitando){
         // Ler a mensagem e acumular na nuvem total por N vezes
@@ -120,11 +114,11 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1133.3, 1121.6); // Brio
             // Filtrando por voxels e outliers - essa vai para visualizacao
-            ROS_WARN("Filtrando nuvem ...");
-            VoxelGrid<PointT> voxel;
-            voxel.setInputCloud(cloud_color);
-            voxel.setLeafSize(0.01, 0.01, 0.01);
-            voxel.filter(*cloud_color);
+            //ROS_WARN("Filtrando nuvem ...");
+            //VoxelGrid<PointT> voxel;
+            //voxel.setInputCloud(cloud_color);
+            //voxel.setLeafSize(0.01, 0.01, 0.01);
+            //voxel.filter(*cloud_color);
             // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
             if(cont_aquisicao < 10){
