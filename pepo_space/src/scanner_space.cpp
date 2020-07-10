@@ -59,8 +59,8 @@ double deg_min_pan =  3, deg_max_pan =  358;
 double deg_raw_pan, raw_deg_pan; // Definidas no main
 double dentro = 10; // Raio de seguranca que estamos dentro ja [RAW] (pelas contas aproximadas, 1 RAW = 0.08 degrees)
 // Inicia variaveis do motor TILT - horizontal da offset para ser o zero
-double raw_min_tilt = 2595, raw_hor_tilt = 2150, raw_max_tilt = 1595;
-double deg_min_tilt =   39, deg_hor_tilt =    0, deg_max_tilt =  -50;
+double raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595;
+double deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.9;
 double deg_raw_tilt, raw_deg_tilt; // Definidas no main
 // Classe de processamento de nuvens
 ProcessCloud *pc;
@@ -138,11 +138,11 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 30); // Z metros de profundidade
+            pass.setFilterLimits(0, 20); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1133.3, 1121.6); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1115, 1115); // Brio
             // Filtrando por voxels e outliers - essa vai para visualizacao
             ROS_WARN("Filtrando nuvem ...");
             VoxelGrid<PointT> voxel;
@@ -172,7 +172,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             }
             /// Adicionar ao vetor a linha correspondente do NVM ///
             // Escreve a linha e armazena
-            linhas_nvm[indice_posicao] = pc->escreve_linha_imagem((1133.3 + 1121.6)/2, nome_imagem_atual, C, q); // Brio
+            linhas_nvm[indice_posicao] = pc->escreve_linha_imagem(1115.0, nome_imagem_atual, C, q); // Brio
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;
