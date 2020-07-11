@@ -51,13 +51,13 @@ typedef PointXYZRGB PointT;
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, transicao = false, aquisitar_imagem = false, fim_processo = false;
 int indice_posicao = 0; // Posicao do vetor de posicoes sendo observada no momento
-int contador_nuvem = 0, N = 100; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 80; // Quantas nuvens aquisitar em cada parcial
 vector<int> posicoes_pan, posicoes_tilt; // Posicoes a serem vasculhadas pelos motores
 // Inicia variaveis do motor PAN
 double raw_min_pan = 35, raw_max_pan = 4077;
 double deg_min_pan =  3, deg_max_pan =  358;
 double deg_raw_pan, raw_deg_pan; // Definidas no main
-double dentro = 10; // Raio de seguranca que estamos dentro ja [RAW] (pelas contas aproximadas, 1 RAW = 0.08 degrees)
+double dentro = 3; // Raio de seguranca que estamos dentro ja [RAW] (pelas contas aproximadas, 1 RAW = 0.08 degrees)
 // Inicia variaveis do motor TILT - horizontal da offset para ser o zero
 double raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595;
 double deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.9;
@@ -138,11 +138,11 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 20); // Z metros de profundidade
+            pass.setFilterLimits(0, 25); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1115, 1115); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1120, 1120); // Brio
             // Filtrando por voxels e outliers - essa vai para visualizacao
             ROS_WARN("Filtrando nuvem ...");
             VoxelGrid<PointT> voxel;
@@ -217,7 +217,7 @@ void dynCallback(const nav_msgs::OdometryConstPtr& msg){
     // Se estiver perto do valor de posicao atual de gravacao, liberar a aquisicao
     if(abs(pan - posicoes_pan[indice_posicao]) <= dentro && abs(tilt - posicoes_tilt[indice_posicao]) <= dentro){
         aquisitando = true;
-        posicoes_pan[indice_posicao] = pan; posicoes_tilt[indice_posicao] = tilt; // Para ficar mais preciso ainda na transformacao
+        //posicoes_pan[indice_posicao] = pan; posicoes_tilt[indice_posicao] = tilt; // Para ficar mais preciso ainda na transformacao
         ROS_INFO("Estamos captando na posicao %d ...", indice_posicao+1);
     } else {
         aquisitando = false;
@@ -327,7 +327,7 @@ int main(int argc, char **argv)
     // Subscribers dessincronizados para mensagens de laser, imagem e motores
     ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"                    , 10, laserCallback);
     ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw"               , 10, camCallback  );
-    ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados",  1, dynCallback  );
+    ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados", 10, dynCallback  );
 
     ROS_INFO("Comecando a aquisicao ...");
 
