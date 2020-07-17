@@ -85,10 +85,9 @@ public:
   void saveImage(cv::Mat img, std::string nome);
   string getFolderName();
   void setFolderName(string name);
+  Matrix3f euler2matrix(float r, float p, float y);
 
 private:
-  /// Metodos
-  Matrix3f euler2matrix(float r, float p, float y);
 
   /// Variaveis
   Matrix3f K_cam; // Parametros intrinsecos da camera
