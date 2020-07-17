@@ -139,10 +139,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
             if(comando_motor.call(cmd))
                 ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
         } else { // Se for a ultima, finalizar
-            // Voltando para o inicio
-            cmd.request.pan_pos  = pans_raw[0];
-            cmd.request.tilt_pos = tilts_raw[0]; // Vai deitar mesmo
-            comando_motor.call(cmd);
             ROS_INFO("Aquisitamos todas as imagens, indo para a posicao inicial ...");
             fim_aquisicao_imagens = true;
         }
@@ -216,9 +212,9 @@ void callback_cloud_servos(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, co
             indice_posicao++;
             // Salvar nuvem
             if(indice_posicao+1 < 10)
-                pc->saveCloud(cloud, "pf_00"+std::to_string(indice_posicao));
+                pc->saveCloud(cloud, "pf_00"+std::to_string(pans_deg.size()-indice_posicao+1));
             else if(indice_posicao+1 < 100)
-                pc->saveCloud(cloud, "pf_0"+std::to_string(indice_posicao));
+                pc->saveCloud(cloud, "pf_0" +std::to_string(pans_deg.size()-indice_posicao+1));
             // Publicar nuvem
             sensor_msgs::PointCloud2 msg_out;
             toROSMsg(*cloud, msg_out);
@@ -245,7 +241,7 @@ void callback_cloud_servos(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, co
                 // Chaveando flag para mudar a vista em pan
                 mudando_vista_pan = true;
                 // Indo para a proxima aquisicao
-                cmd.request.pan_pos  = pans_raw[indice_posicao];
+                cmd.request.pan_pos  = deg2raw(pans_deg[indice_posicao], "pan");
                 cmd.request.tilt_pos = tilt;
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para posicao pan %d de %zu ...", indice_posicao, pans_raw.size());
@@ -278,7 +274,7 @@ int main(int argc, char **argv)
     // Preenchendo vetor de pan e tilt primeiro para a camera
     int step = 30; // [DEG]
     // Pontos de observacao em tilt
-    vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
+    vector<float> tilts_camera_deg {deg_hor_tilt};//{deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     // Pontos de observacao em pan
     int vistas_pan = int(deg_max_pan - deg_min_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
