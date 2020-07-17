@@ -127,8 +127,8 @@ void MultiPort::setServosControllers()
   pan_driver_->writeRegister("ccw_angle_limit", 4095); 
 
   pan_driver_->writeRegister("p_gain", 15);
-  pan_driver_->writeRegister("i_gain",  2);
-  pan_driver_->writeRegister("d_gain",  7);
+  pan_driver_->writeRegister("i_gain",  3);
+  pan_driver_->writeRegister("d_gain",  4);
 
   pan_driver_->writeRegister("led",  1);
 

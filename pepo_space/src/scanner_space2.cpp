@@ -185,9 +185,14 @@ int main(int argc, char **argv)
     // Enchendo vetores de comandos em deg globais
     for(int j=0; j < tilts_camera_deg.size(); j++){
         for(int i=0; i < pans_camera_deg.size(); i++){
-            pans_deg[i + j*pans_camera_deg.size()]  = pans_camera_deg[i];
-            tilts_deg[i + j*pans_camera_deg.size()] = tilts_camera_deg[j];
-            pans_raw.push_back(deg2raw(pans_camera_deg[i], "pan"));
+            if(remainder(j, 2) == 0){
+                pans_deg.push_back(pans_camera_deg[i]);
+                pans_raw.push_back(deg2raw(pans_camera_deg[i], "pan"));
+            } else {
+                pans_deg.push_back(pans_camera_deg[pans_camera_deg.size() - 1 - i]);
+                pans_raw.push_back(deg2raw(pans_camera_deg[pans_camera_deg.size() - 1 - i], "pan"));
+            }
+            tilts_deg.push_back(tilts_camera_deg[j]);
             tilts_raw.push_back(deg2raw(tilts_camera_deg[j], "tilt"));
         }
     }
