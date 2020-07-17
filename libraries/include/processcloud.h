@@ -76,12 +76,14 @@ public:
   ProcessCloud(string _pasta);
   virtual ~ProcessCloud();
   void transformToCameraFrame(PointCloud<PointT>::Ptr nuvem);
+  void transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem);
   void transformCloudAndCamServoAngles(PointCloud<PointT>::Ptr cloud, float pan, float tilt, Vector3f &C, Quaternion<float> &q);
   void colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float fx, float fy);
 
   std::string escreve_linha_imagem(float foco, std::string nome, Vector3f C, Quaternion<float> q);
   void compileFinalNVM(vector<std::string> linhas);
   void saveCloud(PointCloud<PointT>::Ptr nuvem, string nome);
+  void saveCloud(PointCloud<PointXYZ>::Ptr nuvem, string nome);
   void saveImage(cv::Mat img, std::string nome);
   string getFolderName();
   void setFolderName(string name);

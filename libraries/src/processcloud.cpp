@@ -26,6 +26,16 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointT>::Ptr nuvem){
     transformPointCloud(*nuvem, *nuvem, T);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
+void ProcessCloud::transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem){
+    // Rotacionar a nuvem para cair no frame da câmera (laser tem X para frente, câmera deve ter
+    // Z para frente e X para o lado direito)
+    Matrix3f R;
+    R = AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY());
+    Matrix4f T = Matrix4f::Identity();     // Matriz de transformaçao homogenea
+    T.block<3, 3>(0, 0) = R;                             // Adiciona a rotacao onde deve estar
+    transformPointCloud(*nuvem, *nuvem, T);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float fx, float fy){
     // Matriz intrinseca e extrinseca
     Matrix3f K;
@@ -64,6 +74,11 @@ void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_i
 void ProcessCloud::saveCloud(PointCloud<PointT>::Ptr nuvem, std::string nome){
     std::string nome_nuvem = pasta + nome + ".ply";
     savePLYFileBinary<PointT>(nome_nuvem, *nuvem);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void ProcessCloud::saveCloud(PointCloud<PointXYZ>::Ptr nuvem, std::string nome){
+    std::string nome_nuvem = pasta + nome + ".ply";
+    savePLYFileBinary<PointXYZ>(nome_nuvem, *nuvem);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCloud::saveImage(cv::Mat img, string nome){

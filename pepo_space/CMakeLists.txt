@@ -5,8 +5,7 @@ project(pepo_space)
 add_compile_options(-std=c++11)
 
 find_package(OpenCV REQUIRED)
-find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control
-)
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control tf2_ros pcl_conversions)
 find_package(OpenMP REQUIRED)
 if(OPENMP_FOUND)
   message(STATUS "OPENMP FOUND")
@@ -20,7 +19,7 @@ include_directories(${PCL_INCLUDE_DIRS})
 include_directories(../libraries/include)
 include_directories(${OpenMP_INCLUDE_DIRS})
 
-catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control)
+catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control tf2_ros pcl_conversions)
 
 #add_executable(scanner_space src/scanner_space.cpp ../libraries/src/processcloud.cpp)
 #target_compile_options(scanner_space PRIVATE ${OpenMP_FLAGS})
