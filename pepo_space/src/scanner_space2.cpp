@@ -74,7 +74,7 @@ ros::Publisher od_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Controle de voltas realizadas no escaneamento do laser
-int Nvoltas = 10, voltas_realizadas = 0;
+int Nvoltas = 6, voltas_realizadas = 0;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
 // Objetivo atual em tilt
@@ -188,7 +188,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
             // Ajustar fim de curso para o tilt oposto
             fim_curso_tilt = (fim_curso_tilt == raw_max_tilt) ? raw_min_tilt : raw_max_tilt;
             // Enviar comando para a proxima posicao
-            cmd.request.pan_pos  = deg2raw(pans_deg[pans_deg.size()-1-indice_posicao], "pan");
+            cmd.request.pan_pos  = pans_raw[indice_posicao];
             cmd.request.tilt_pos = fim_curso_tilt;
             if(comando_motor.call(cmd))
                 ROS_INFO("Fazendo volta %d ...", voltas_realizadas-1);
@@ -221,7 +221,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
             parcial->clear();
             // Se na ultima posicao de pan, finalizar
             if(indice_posicao == pans_deg.size()){
-                cmd.request.pan_pos  = deg2raw(pans_deg[0], "pan");
+                cmd.request.pan_pos  = pans_raw[pans_raw.size()-1];
                 cmd.request.tilt_pos = raw_hor_tilt;
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para baixo e finalizando tudo ...");
@@ -232,14 +232,14 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
                 // Chaveando flag para mudar a vista em pan
                 mudando_vista_pan = true;
                 // Indo para a proxima aquisicao
-                cmd.request.pan_pos  = deg2raw(pans_deg[pans_deg.size()-1-indice_posicao], "pan");
+                cmd.request.pan_pos  = pans_raw[indice_posicao];
                 cmd.request.tilt_pos = fim_curso_tilt;
                 if(comando_motor.call(cmd))
-                    ROS_INFO("Indo para posicao pan %d de %zu ...", indice_posicao+1, pans_deg.size());
+                    ROS_INFO("Indo para posicao pan %d de %zu ...", indice_posicao+1, pans_raw.size());
             }
         }
     } else { // Estamos mudando de vista pan, verificar se chegamos no inicio de nova aquisicao e chavear flag
-        if((tilt - fim_curso_tilt) <= dentro && abs(pan - deg2raw(pans_deg[pans_deg.size()-1-indice_posicao], "pan")) <= dentro)
+        if((tilt - fim_curso_tilt) <= dentro && abs(pan - pans_raw[indice_posicao]) <= dentro)
             mudando_vista_pan = false;
     }
 }
@@ -340,7 +340,7 @@ int main(int argc, char **argv)
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Daqui pra frente colocaremos tudo do laser
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Apagar os subscribers anteriores
+    // Apagar o subscriber da camera
     sub_cam.shutdown();
     // Limpar vetores de posicao e posicao atual
     pans_raw.clear(); pans_deg.clear();
@@ -349,6 +349,8 @@ int main(int argc, char **argv)
 
     // Controlar somente aqui as posicoes em pan, em tilt ficar variando de acordo com as voltas
     pans_deg = pans_camera_deg;
+    for (int i = pans_raw.size()-1; i >= 0; i--)
+        pans_raw.push_back(deg2raw(pans_deg[i], "pan"));
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
@@ -359,7 +361,7 @@ int main(int argc, char **argv)
 
     // Reforcar ida do servo a ultima posicao de aquisicao
     ROS_INFO("Comecando a aquisicao do laser ...");
-    cmd.request.pan_pos  = deg2raw(pans_deg[pans_deg.size()-1], "pan");
+    cmd.request.pan_pos  = pans_raw[0];
     cmd.request.tilt_pos = raw_max_tilt;
     fim_curso_tilt = raw_max_tilt; // Acerta o fim de curso atual
     comando_motor.call(cmd);
