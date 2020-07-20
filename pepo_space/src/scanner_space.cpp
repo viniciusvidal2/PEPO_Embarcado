@@ -142,7 +142,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1120, 1120); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image); // Brio
             // Filtrando por voxels e outliers - essa vai para visualizacao
             ROS_WARN("Filtrando nuvem ...");
             VoxelGrid<PointT> voxel;
@@ -172,7 +172,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             }
             /// Adicionar ao vetor a linha correspondente do NVM ///
             // Escreve a linha e armazena
-            linhas_nvm[indice_posicao] = pc->escreve_linha_imagem(1115.0, nome_imagem_atual, C, q); // Brio
+            linhas_nvm[indice_posicao] = pc->escreve_linha_imagem(1140.0, nome_imagem_atual, C, q); // Brio
             //////////////////////
             // Zerar contador de nuvens da parcial
             contador_nuvem = 0;

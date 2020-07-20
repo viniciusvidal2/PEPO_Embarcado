@@ -99,7 +99,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             aquisitar_imagem = false;
             Mat temp_im;
             imptr->image.copyTo(temp_im);
-            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1133.3, 1121.6); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, temp_im); // Brio
             aquisitar_imagem = true;
             // Filtrando por voxels e outliers - essa vai para visualizacao
             VoxelGrid<PointT> voxel;

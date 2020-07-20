@@ -1,14 +1,8 @@
 #include "../include/processcloud.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta)
-{
-    // Dimensoes da camera USB de entrada
-    cam_w = 1920; cam_h = 1080;
-    // Inicia matriz intrinseca da camera USB - Brio
-    K_cam << 2182.371971/2,    0.000000, 960,
-                0.000000, 2163.572854/2, 540,
-                0.000000,    0.000000,    1.000000;
+ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
+
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ProcessCloud::~ProcessCloud(){
@@ -36,19 +30,19 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem){
     transformPointCloud(*nuvem, *nuvem, T);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
-void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float fx, float fy){
+void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image){
     // Matriz intrinseca e extrinseca
     Matrix3f K;
-    K << fx,  0, image.cols/2.0,
-          0, fy, image.rows/2.0,
-          0,  0,      1       ;
-    MatrixXf Rt(3, 4); // Desenho do antonio - diferenca no frame da camera do laser para a camera
-    Rt << 1, 0, 0,  0.01 ,
-          0, 1, 0,  0.0448,
-          0, 0, 1,  0.023;
+    K << 1145.1  ,    0.033, 960,
+           -0.041, 1122.5  , 540,
+            0    ,    0    ,   1;
+    MatrixXf Rt(3, 4);                   // Otimizacao com Matlab
+    Rt << 1, 0, 0,  0.0728 ,
+          0, 1, 0,  0.0526,
+          0, 0, 1,  0.0480;
     MatrixXf P(3, 4);
     P = K*Rt;
-//#pragma omp for
+#pragma omp parallel for
     for(size_t i = 0; i < cloud_in->size(); i++){
         // Pegar ponto em coordenadas homogeneas
         MatrixXf X_(4, 1);
