@@ -74,7 +74,7 @@ ros::Publisher od_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Controle de voltas realizadas no escaneamento do laser
-int Nvoltas = 6, voltas_realizadas = 0;
+int Nvoltas = 3, voltas_realizadas = 0;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
 PointCloud<PointXYZ>::Ptr parcial_enviar;
@@ -120,7 +120,7 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
         // Reduzir resolucao
         Mat im;
         image_ptr->image.copyTo(im);
-        // resize(im, im, Size(im.cols/2, im.rows/2));
+        resize(im, im, Size(im.cols/4, im.rows/4));
         // Publicar para o no em fog imagem e odometria
         cv_bridge::CvImage out_msg;
         out_msg.header   = msg->header;
@@ -160,8 +160,9 @@ void dynCallback(const nav_msgs::OdometryConstPtr& msg){
     if(!fim_aquisicao_imagens){
         // Se estiver perto do valor de posicao atual de gravacao, liberar a aquisicao
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && !fim_aquisicao_imagens){
-            sleep(1); // Espera servos pararem
+            sleep(2); // Espera servos pararem
             aquisitar_imagem = true;
+            sleep(1); // Espera servos pararem
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
         } else {
             aquisitar_imagem = false;
@@ -198,7 +199,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
             cmd.request.pan_pos  = pans_raw[indice_posicao];
             cmd.request.tilt_pos = fim_curso_tilt;
             if(comando_motor.call(cmd))
-                ROS_INFO("Fazendo volta %d ...", voltas_realizadas-1);
+                ROS_INFO("Fazendo volta %d ...", voltas_realizadas);
         }
         // Se ja demos todas as voltas, enviar ao inicio e a proxima posicao de pan
         if(voltas_realizadas == Nvoltas){
@@ -212,7 +213,11 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
             else if(indice_posicao+1 < 100)
                 pc->saveCloud(parcial, "pf_0" +std::to_string(pans_deg.size()-indice_posicao+1));
             // Preencher nuvem parcial atual para enviar junto com angulos de odometria
-            *parcial_enviar = *parcial;
+            VoxelGrid<PointXYZ> voxel;
+            voxel.setLeafSize(0.01, 0.01, 0.01);
+            voxel.setInputCloud(parcial);
+            voxel.filter(*parcial_enviar);
+            //*parcial_enviar = *parcial;
             pan_enviar = pan; tilt_enviar = tilt;
             // Limpar nuvem parcial
             parcial->clear();
@@ -222,8 +227,12 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
                 cmd.request.tilt_pos = raw_hor_tilt;
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para baixo e finalizando tudo ...");
+                // LED fixo
+                led_control::LED cmd_led;
+                cmd_led.request.led = 1;
+                comando_leds.call(cmd_led);
                 sleep(5);
-                system("gnome-terminal -x sh -c 'rosnode kill -a'");
+                //system("gnome-terminal -x sh -c 'rosnode kill -a'");
                 ros::shutdown();
             } else { // Senao, mandar a proxima vista em pan
                 // Chaveando flag para mudar a vista em pan
@@ -319,6 +328,7 @@ int main(int argc, char **argv)
 
     // Subscribers dessincronizados para mensagens de imagem e motores
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback);
+    sleep(2);
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, dynCallback);
 
     ROS_INFO("Comecando a aquisicao ...");
@@ -348,7 +358,7 @@ int main(int argc, char **argv)
 
     // Controlar somente aqui as posicoes em pan, em tilt ficar variando de acordo com as voltas
     pans_deg = pans_camera_deg;
-    for (int i = pans_raw.size()-1; i >= 0; i--)
+    for (int i = pans_deg.size()-1; i >= 0; i--)
         pans_raw.push_back(deg2raw(pans_deg[i], "pan"));
 
     // Iniciando a nuvem parcial acumulada de cada pan
