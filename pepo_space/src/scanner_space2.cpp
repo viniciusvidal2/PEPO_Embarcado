@@ -120,11 +120,17 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
         Mat im;
         image_ptr->image.copyTo(im);
         resize(im, im, Size(im.cols/2, im.rows/2));
-        // Publicar para o no em fog
+        // Publicar para o no em fog imagem e odometria
         cv_bridge::CvImage out_msg;
         out_msg.header   = msg->header;
         out_msg.encoding = sensor_msgs::image_encodings::BGR8;
         out_msg.image    = im;
+        nav_msgs::Odometry odom_out;
+        odom_out.pose.pose.position.x = pan;
+        odom_out.pose.pose.position.y = tilt;
+        odom_out.header.stamp = out_msg.header.stamp;
+        odom_out.header.frame_id = out_msg.header.frame_id;
+        od_pub.publish(odom_out);
         im_pub.publish(out_msg.toImageMsg());
         // Avancar uma posicao no vetor, se possivel
         dynamixel_workbench_msgs::JointCommand cmd;
@@ -208,7 +214,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
             sensor_msgs::PointCloud2 msg_out;
             toROSMsg(*parcial, msg_out);
             msg_out.header.stamp = ros::Time::now();
-            msg_out.header.frame_id = "aceitar";
+            msg_out.header.frame_id = "map";
             cl_pub.publish(msg_out);
             // Publicar odometria
             nav_msgs::Odometry odom_out;
@@ -341,7 +347,7 @@ int main(int argc, char **argv)
     /// Daqui pra frente colocaremos tudo do laser
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Apagar o subscriber da camera
-    sub_cam.shutdown();
+    sub_cam.shutdown(); im_pub.shutdown();
     // Limpar vetores de posicao e posicao atual
     pans_raw.clear(); pans_deg.clear();
     tilts_raw.clear(); tilts_deg.clear();
@@ -368,19 +374,19 @@ int main(int argc, char **argv)
 
     // Aguardar todo o processamento e ir publicando
     while(ros::ok()){
-        // Publicar nuvem
-        sensor_msgs::PointCloud2 msg_out;
-        toROSMsg(*parcial, msg_out);
-        msg_out.header.stamp = ros::Time::now();
-        msg_out.header.frame_id = "map";
-        cl_pub.publish(msg_out);
-        // Publicar odometria
-        nav_msgs::Odometry odom_out;
-        odom_out.pose.pose.position.x = pan;
-        odom_out.pose.pose.position.y = tilt;
-        odom_out.header.stamp = msg_out.header.stamp;
-        odom_out.header.frame_id = msg_out.header.frame_id;
-        od_pub.publish(odom_out);
+//        // Publicar nuvem
+//        sensor_msgs::PointCloud2 msg_out;
+//        toROSMsg(*parcial, msg_out);
+//        msg_out.header.stamp = ros::Time::now();
+//        msg_out.header.frame_id = "map";
+//        cl_pub.publish(msg_out);
+//        // Publicar odometria
+//        nav_msgs::Odometry odom_out;
+//        odom_out.pose.pose.position.x = pan;
+//        odom_out.pose.pose.position.y = tilt;
+//        odom_out.header.stamp = msg_out.header.stamp;
+//        odom_out.header.frame_id = msg_out.header.frame_id;
+//        od_pub.publish(odom_out);
 
         ros::spinOnce();
         r.sleep();
