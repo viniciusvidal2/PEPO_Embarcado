@@ -77,10 +77,11 @@ ProcessCloud *pc;
 int Nvoltas = 6, voltas_realizadas = 0;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
+PointCloud<PointXYZ>::Ptr parcial_enviar;
 // Objetivo atual em tilt
 int fim_curso_tilt;
 // Valor do servo naquele instante em variavel global para ser acessado em varios callbacks
-int pan, tilt;
+int pan, tilt, pan_enviar, tilt_enviar;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
@@ -119,7 +120,7 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
         // Reduzir resolucao
         Mat im;
         image_ptr->image.copyTo(im);
-        resize(im, im, Size(im.cols/2, im.rows/2));
+        // resize(im, im, Size(im.cols/2, im.rows/2));
         // Publicar para o no em fog imagem e odometria
         cv_bridge::CvImage out_msg;
         out_msg.header   = msg->header;
@@ -210,19 +211,9 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
                 pc->saveCloud(parcial, "pf_00"+std::to_string(pans_deg.size()-indice_posicao+1));
             else if(indice_posicao+1 < 100)
                 pc->saveCloud(parcial, "pf_0" +std::to_string(pans_deg.size()-indice_posicao+1));
-            // Publicar nuvem
-            sensor_msgs::PointCloud2 msg_out;
-            toROSMsg(*parcial, msg_out);
-            msg_out.header.stamp = ros::Time::now();
-            msg_out.header.frame_id = "map";
-            cl_pub.publish(msg_out);
-            // Publicar odometria
-            nav_msgs::Odometry odom_out;
-            odom_out.pose.pose.position.x = pan;
-            odom_out.pose.pose.position.y = tilt;
-            odom_out.header.stamp = msg_out.header.stamp;
-            odom_out.header.frame_id = msg_out.header.frame_id;
-            od_pub.publish(odom_out);
+            // Preencher nuvem parcial atual para enviar junto com angulos de odometria
+            *parcial_enviar = *parcial;
+            pan_enviar = pan; tilt_enviar = tilt;
             // Limpar nuvem parcial
             parcial->clear();
             // Se na ultima posicao de pan, finalizar
@@ -342,6 +333,8 @@ int main(int argc, char **argv)
         r.sleep();
         ros::spinOnce();
     }
+    // Dar um tempo pra receber a ultima imagem no outro subscriber
+    sleep(5);
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Daqui pra frente colocaremos tudo do laser
@@ -361,6 +354,8 @@ int main(int argc, char **argv)
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     parcial->header.frame_id  = "map";
+    parcial_enviar = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
+    parcial_enviar->header.frame_id  = "map";
 
     // Iniciar subscritor de laser sincronizado com posicao dos servos
     ros::Subscriber laser_sub = nh.subscribe("/livox/lidar", 10, laserCallback);
@@ -374,19 +369,21 @@ int main(int argc, char **argv)
 
     // Aguardar todo o processamento e ir publicando
     while(ros::ok()){
-//        // Publicar nuvem
-//        sensor_msgs::PointCloud2 msg_out;
-//        toROSMsg(*parcial, msg_out);
-//        msg_out.header.stamp = ros::Time::now();
-//        msg_out.header.frame_id = "map";
-//        cl_pub.publish(msg_out);
-//        // Publicar odometria
-//        nav_msgs::Odometry odom_out;
-//        odom_out.pose.pose.position.x = pan;
-//        odom_out.pose.pose.position.y = tilt;
-//        odom_out.header.stamp = msg_out.header.stamp;
-//        odom_out.header.frame_id = msg_out.header.frame_id;
-//        od_pub.publish(odom_out);
+        // Publicar nuvem
+        if(parcial_enviar->size() > 10){
+            sensor_msgs::PointCloud2 msg_out;
+            toROSMsg(*parcial_enviar, msg_out);
+            msg_out.header.stamp = ros::Time::now();
+            msg_out.header.frame_id = "map";
+            cl_pub.publish(msg_out);
+            // Publicar odometria
+            nav_msgs::Odometry odom_out;
+            odom_out.pose.pose.position.x = pan_enviar;
+            odom_out.pose.pose.position.y = tilt_enviar;
+            odom_out.header.stamp = msg_out.header.stamp;
+            odom_out.header.frame_id = msg_out.header.frame_id;
+            od_pub.publish(odom_out);
+        }
 
         ros::spinOnce();
         r.sleep();
