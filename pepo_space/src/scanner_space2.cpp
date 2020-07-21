@@ -32,6 +32,10 @@
 #include <dynamixel_workbench_msgs/JointCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelState.h>
 
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
 #include "../../libraries/include/processcloud.h"
 #include "led_control/LED.h"
 
@@ -41,10 +45,15 @@ using namespace pcl;
 using namespace pcl::io;
 using namespace cv;
 using namespace std;
+using namespace message_filters;
 
 /// Definiçoes
 ///
 typedef PointXYZRGB PointT;
+typedef sync_policies::ApproximateTime<sensor_msgs::PointCloud2, nav_msgs::Odometry> syncPolicy;
+typedef Synchronizer<syncPolicy> Sync;
+boost::shared_ptr<Sync> syncptr;
+
 /// Variaveis globais
 ///
 // Vetores para posicao angular dos servos
@@ -170,9 +179,11 @@ void dynCallback(const nav_msgs::OdometryConstPtr& msg){
     }
 }
 
-/// Callback do laser
+/// Callback do laser e servos
 ///
-void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
+void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr &msg_servos){
+    // As mensagens trazem angulos em unidade RAW
+    pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
     // Se nao estamos mudando vista pan, processar
     if(!mudando_vista_pan){
         // Converter mensagem
@@ -328,7 +339,6 @@ int main(int argc, char **argv)
 
     // Subscribers dessincronizados para mensagens de imagem e motores
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback);
-    sleep(2);
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, dynCallback);
 
     ROS_INFO("Comecando a aquisicao ...");
@@ -350,7 +360,7 @@ int main(int argc, char **argv)
     /// Daqui pra frente colocaremos tudo do laser
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Apagar o subscriber da camera
-    sub_cam.shutdown(); im_pub.shutdown();
+    sub_cam.shutdown(); im_pub.shutdown(); sub_dyn.shutdown();
     // Limpar vetores de posicao e posicao atual
     pans_raw.clear(); pans_deg.clear();
     tilts_raw.clear(); tilts_deg.clear();
@@ -368,7 +378,12 @@ int main(int argc, char **argv)
     parcial_enviar->header.frame_id  = "map";
 
     // Iniciar subscritor de laser sincronizado com posicao dos servos
-    ros::Subscriber laser_sub = nh.subscribe("/livox/lidar", 10, laserCallback);
+//    ros::Subscriber laser_sub = nh.subscribe("/livox/lidar", 10, laserCallback);
+    message_filters::Subscriber<sensor_msgs::PointCloud2> sub_nuvem (nh, "/livox/lidar"                    , 50);
+    message_filters::Subscriber<nav_msgs::Odometry      > sub_odom  (nh, "/dynamixel_angulos_sincronizados", 50);
+    syncptr.reset(new Sync(syncPolicy(50), sub_nuvem, sub_odom));
+    syncptr->registerCallback(boost::bind(&laserServosCallback, _1, _2));
+
 
     // Reforcar ida do servo a ultima posicao de aquisicao
     ROS_INFO("Comecando a aquisicao do laser ...");
