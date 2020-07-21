@@ -33,7 +33,7 @@
 #include <dynamixel_workbench_msgs/DynamixelState.h>
 
 #include <message_filters/subscriber.h>
-#include <message_filters/time_synchronizer.h>
+#include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include "../../libraries/include/processcloud.h"
@@ -51,8 +51,6 @@ using namespace message_filters;
 ///
 typedef PointXYZRGB PointT;
 typedef sync_policies::ApproximateTime<sensor_msgs::PointCloud2, nav_msgs::Odometry> syncPolicy;
-typedef Synchronizer<syncPolicy> Sync;
-boost::shared_ptr<Sync> syncptr;
 
 /// Variaveis globais
 ///
@@ -73,9 +71,9 @@ ros::ServiceClient comando_leds;
 // Posicao atual de aquisicao
 int indice_posicao = 0;
 // Raio de aceitacao de posicao angular
-int dentro = 8; // [RAW]
+int dentro = 5; // [RAW]
 // Flags de controle
-bool aquisitar_imagem = false, fim_aquisicao_imagens = false, mudando_vista_pan = false;
+bool aquisitar_imagem = false, fim_aquisicao_imagens = false, mudando_vista_pan = false, pode_publicar = true;
 // Publicador de imagem, nuvem parcial e odometria
 ros::Publisher im_pub;
 ros::Publisher cl_pub;
@@ -83,7 +81,7 @@ ros::Publisher od_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Controle de voltas realizadas no escaneamento do laser
-int Nvoltas = 3, voltas_realizadas = 0;
+int Nvoltas = 2, voltas_realizadas = 0;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
 PointCloud<PointXYZ>::Ptr parcial_enviar;
@@ -158,7 +156,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
         // Chavear a flag
         aquisitar_imagem = false;
     }
-
 }
 
 /// Callback dos servos
@@ -171,7 +168,6 @@ void dynCallback(const nav_msgs::OdometryConstPtr& msg){
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && !fim_aquisicao_imagens){
             sleep(2); // Espera servos pararem
             aquisitar_imagem = true;
-            sleep(1); // Espera servos pararem
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
         } else {
             aquisitar_imagem = false;
@@ -197,11 +193,12 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         Matrix4f T = Matrix4f::Identity();
         T.block<3,3>(0, 0) = R;
         transformPointCloud(*cloud, *cloud, T);
-        // Acumular nuvem
+        // Acumular nuvem parcial
         *parcial += *cloud;
         /// Verificar a posicao que estamos e enviar para o oposto
         // Se ja demos o suficiente de voltas, nem entrar e verificar ali embaixo
-        if(abs(tilt - fim_curso_tilt) <= dentro && voltas_realizadas < Nvoltas){
+        if(abs(tilt - fim_curso_tilt) <= dentro){
+        if(voltas_realizadas < Nvoltas){
             // Atualizar voltas
             voltas_realizadas++;
             // Ajustar fim de curso para o tilt oposto
@@ -211,25 +208,25 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
             cmd.request.tilt_pos = fim_curso_tilt;
             if(comando_motor.call(cmd))
                 ROS_INFO("Fazendo volta %d ...", voltas_realizadas);
-        }
-        // Se ja demos todas as voltas, enviar ao inicio e a proxima posicao de pan
-        if(voltas_realizadas == Nvoltas){
+        } else if(voltas_realizadas == Nvoltas){ // Se ja demos todas as voltas, enviar ao inicio e a proxima posicao de pan
             ROS_INFO("Salvando nuvem %d em PAN ...", indice_posicao+1);
+            pode_publicar = false;
+            // Preencher nuvem parcial atual para enviar junto com angulos de odometria
+            VoxelGrid<PointXYZ> voxel;
+            voxel.setLeafSize(0.02, 0.02, 0.02);
+            voxel.setInputCloud(parcial);
+            parcial_enviar->clear();
+            voxel.filter(*parcial_enviar);
+            pan_enviar = pan; tilt_enviar = tilt;            
             // Zerar voltas e atualizar indice de posicao
             voltas_realizadas = 0;
             indice_posicao++;
+            pode_publicar = true;
             // Salvar nuvem
             if(indice_posicao+1 < 10)
                 pc->saveCloud(parcial, "pf_00"+std::to_string(pans_deg.size()-indice_posicao+1));
             else if(indice_posicao+1 < 100)
                 pc->saveCloud(parcial, "pf_0" +std::to_string(pans_deg.size()-indice_posicao+1));
-            // Preencher nuvem parcial atual para enviar junto com angulos de odometria
-            VoxelGrid<PointXYZ> voxel;
-            voxel.setLeafSize(0.01, 0.01, 0.01);
-            voxel.setInputCloud(parcial);
-            voxel.filter(*parcial_enviar);
-            //*parcial_enviar = *parcial;
-            pan_enviar = pan; tilt_enviar = tilt;
             // Limpar nuvem parcial
             parcial->clear();
             // Se na ultima posicao de pan, finalizar
@@ -244,7 +241,7 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
                 comando_leds.call(cmd_led);
                 sleep(5);
                 //system("gnome-terminal -x sh -c 'rosnode kill -a'");
-                ros::shutdown();
+                //ros::shutdown();
             } else { // Senao, mandar a proxima vista em pan
                 // Chaveando flag para mudar a vista em pan
                 mudando_vista_pan = true;
@@ -255,8 +252,10 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
                     ROS_INFO("Indo para posicao pan %d de %zu ...", indice_posicao+1, pans_raw.size());
             }
         }
+        }
     } else { // Estamos mudando de vista pan, verificar se chegamos no inicio de nova aquisicao e chavear flag
-        if((tilt - fim_curso_tilt) <= dentro && abs(pan - pans_raw[indice_posicao]) <= dentro)
+        mudando_vista_pan = true;
+        if(abs(pan - pans_raw[indice_posicao]) <= dentro)
             mudando_vista_pan = false;
     }
 }
@@ -285,25 +284,25 @@ int main(int argc, char **argv)
     // Preenchendo vetor de pan e tilt primeiro para a camera
     int step = 30; // [DEG]
     // Pontos de observacao em tilt
-    vector<float> tilts_camera_deg {deg_hor_tilt};//{deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
+    vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     // Pontos de observacao em pan
-    int vistas_pan = 5;//int(deg_max_pan - deg_min_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
+    int vistas_pan = int(deg_max_pan - deg_min_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(deg_min_pan + float(j*step));
-    //pans_camera_deg.push_back(deg_max_pan);
-    // Enchendo vetores de comandos em deg globais
-    for(int j=0; j < tilts_camera_deg.size(); j++){
-        for(int i=0; i < pans_camera_deg.size(); i++){
+    pans_camera_deg.push_back(deg_max_pan);
+    // Enchendo vetores de waypoints de imagem em deg e raw globais
+    for(int j=0; j < pans_camera_deg.size(); j++){
+        for(int i=0; i < tilts_camera_deg.size(); i++){
             if(remainder(j, 2) == 0){
-                pans_deg.push_back(pans_camera_deg[i]);
-                pans_raw.push_back(deg2raw(pans_camera_deg[i], "pan"));
+                tilts_deg.push_back(tilts_camera_deg[i]);
+                tilts_raw.push_back(deg2raw(tilts_camera_deg[i], "tilt"));
             } else {
-                pans_deg.push_back(pans_camera_deg[pans_camera_deg.size() - 1 - i]);
-                pans_raw.push_back(deg2raw(pans_camera_deg[pans_camera_deg.size() - 1 - i], "pan"));
+                tilts_deg.push_back(tilts_camera_deg[tilts_camera_deg.size() - 1 - i]);
+                tilts_raw.push_back(deg2raw(tilts_camera_deg[tilts_camera_deg.size() - 1 - i], "tilt"));
             }
-            tilts_deg.push_back(tilts_camera_deg[j]);
-            tilts_raw.push_back(deg2raw(tilts_camera_deg[j], "tilt"));
+            pans_deg.push_back(pans_camera_deg[j]);
+            pans_raw.push_back(deg2raw(pans_camera_deg[j], "pan"));
         }
     }
 
@@ -348,7 +347,7 @@ int main(int argc, char **argv)
     comando_leds.call(cmd_led);
 
     // Aguardando a aquisicao das imagens acabar, para depois pegar tudo com o laser
-    ros::Rate r(1);
+    ros::Rate r(10);
     while(!fim_aquisicao_imagens){
         r.sleep();
         ros::spinOnce();
@@ -368,7 +367,7 @@ int main(int argc, char **argv)
 
     // Controlar somente aqui as posicoes em pan, em tilt ficar variando de acordo com as voltas
     pans_deg = pans_camera_deg;
-    for (int i = pans_deg.size()-1; i >= 0; i--)
+    for(int i=pans_deg.size()-1; i>=0 ; i--)
         pans_raw.push_back(deg2raw(pans_deg[i], "pan"));
 
     // Iniciando a nuvem parcial acumulada de cada pan
@@ -378,12 +377,11 @@ int main(int argc, char **argv)
     parcial_enviar->header.frame_id  = "map";
 
     // Iniciar subscritor de laser sincronizado com posicao dos servos
-//    ros::Subscriber laser_sub = nh.subscribe("/livox/lidar", 10, laserCallback);
-    message_filters::Subscriber<sensor_msgs::PointCloud2> sub_nuvem (nh, "/livox/lidar"                    , 50);
-    message_filters::Subscriber<nav_msgs::Odometry      > sub_odom  (nh, "/dynamixel_angulos_sincronizados", 50);
-    syncptr.reset(new Sync(syncPolicy(50), sub_nuvem, sub_odom));
-    syncptr->registerCallback(boost::bind(&laserServosCallback, _1, _2));
-
+    ros::NodeHandle nh2;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> sub_nuvem (nh2, "/livox/lidar"                    , 10);
+    message_filters::Subscriber<nav_msgs::Odometry      > sub_odom  (nh2, "/dynamixel_angulos_sincronizados", 10);
+    Synchronizer<syncPolicy> sync(syncPolicy(10), sub_nuvem, sub_odom);
+    message_filters::Connection conexao = sync.registerCallback(boost::bind(&laserServosCallback, _1, _2));
 
     // Reforcar ida do servo a ultima posicao de aquisicao
     ROS_INFO("Comecando a aquisicao do laser ...");
@@ -395,19 +393,19 @@ int main(int argc, char **argv)
     // Aguardar todo o processamento e ir publicando
     while(ros::ok()){
         // Publicar nuvem
-        if(parcial_enviar->size() > 10){
+        if(parcial_enviar->size() > 10 && pode_publicar){
             sensor_msgs::PointCloud2 msg_out;
             toROSMsg(*parcial_enviar, msg_out);
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
-            cl_pub.publish(msg_out);
-            // Publicar odometria
             nav_msgs::Odometry odom_out;
             odom_out.pose.pose.position.x = pan_enviar;
             odom_out.pose.pose.position.y = tilt_enviar;
+            odom_out.pose.pose.position.z = indice_posicao;
             odom_out.header.stamp = msg_out.header.stamp;
             odom_out.header.frame_id = msg_out.header.frame_id;
             od_pub.publish(odom_out);
+            cl_pub.publish(msg_out);
         }
 
         ros::spinOnce();

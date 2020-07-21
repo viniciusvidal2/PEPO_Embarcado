@@ -139,8 +139,8 @@ uint32_t Lddc::PublishPointcloud2(LidarDataQueue* queue, uint32_t packet_num, ui
       }
     }
 
-    if (!published_packet) {
-      cloud.header.stamp = ros::Time(timestamp/1000000000.0); // to ros time stamp
+    if (!published_packet) { // VINICIUS
+      cloud.header.stamp = ros::Time::now(); //ros::Time(timestamp/1000000000.0); // to ros time stamp
     }
     cloud.width += storage_packet.point_num;
 
@@ -171,10 +171,12 @@ uint32_t Lddc::PublishPointcloud2(LidarDataQueue* queue, uint32_t packet_num, ui
 
   ros::Publisher* p_publisher = Lddc::GetCurrentPublisher(handle);
   if (kOutputToRos == output_type_) {
+    cloud.header.stamp = ros::Time::now(); // VINICIUS
     p_publisher->publish(cloud);
   } else {
     if (bag_) {
-      bag_->write(p_publisher->getTopic(), ros::Time(timestamp/1000000000.0), cloud);
+      bag_->write(p_publisher->getTopic(), ros::Time::now(), cloud); // VINICIUS
+      //bag_->write(p_publisher->getTopic(), ros::Time(timestamp/1000000000.0), cloud);
     }
   }
 
@@ -190,7 +192,7 @@ uint32_t Lddc::PublishPointcloudData(LidarDataQueue* queue, uint32_t packet_num,
   /* init point cloud data struct */
   PointCloud::Ptr cloud (new PointCloud);
   cloud->header.frame_id = "livox_frame";
-  //cloud->header.stamp = ros::Time::now();
+  //cloud->header.stamp = ros::Time::now(); // VINICIUS
   cloud->height = 1;
   cloud->width = 0;
 
