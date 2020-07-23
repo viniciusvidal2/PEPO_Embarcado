@@ -113,7 +113,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1); // Brio
             // Filtrando por voxels e outliers - essa vai para visualizacao
             //ROS_WARN("Filtrando nuvem ...");
             //VoxelGrid<PointT> voxel;

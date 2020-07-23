@@ -122,7 +122,7 @@ bool MultiPort::setTorque(bool onoff)
 // VINICIUS - Suavizar e controlar os motores
 void MultiPort::setServosControllers()
 {
-  pan_driver_->writeRegister("moving_speed", 20);
+  pan_driver_->writeRegister("moving_speed", 10);
   pan_driver_->writeRegister("cw_angle_limit" ,  0);
   pan_driver_->writeRegister("ccw_angle_limit", 4095); 
 
@@ -132,7 +132,7 @@ void MultiPort::setServosControllers()
 
   pan_driver_->writeRegister("led",  1);
 
-  tilt_driver_->writeRegister("moving_speed", 30);
+  tilt_driver_->writeRegister("moving_speed", 10);
   tilt_driver_->writeRegister("cw_angle_limit" ,  0);
   tilt_driver_->writeRegister("ccw_angle_limit",  4095);
 

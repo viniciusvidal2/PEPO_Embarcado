@@ -57,7 +57,7 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     // Reduz a resolucao e passa para jpeg
     Mat im;
     imptr->image.copyTo(im);
-    resize(im, im, Size(im.cols/3, im.rows/3));
+    resize(im, im, Size(im.cols/4, im.rows/4));
     vector<uchar> buffer_imagem;
     imencode(".jpg", im, buffer_imagem);
     // Envia pelo socket
@@ -99,7 +99,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             aquisitar_imagem = false;
             Mat temp_im;
             imptr->image.copyTo(temp_im);
-            pc->colorCloudWithCalibratedImage(cloud_color, temp_im); // Brio
+            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 4); // Brio
             aquisitar_imagem = true;
             // Filtrando por voxels e outliers - essa vai para visualizacao
             VoxelGrid<PointT> voxel;

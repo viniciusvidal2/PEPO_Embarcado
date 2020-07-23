@@ -26,7 +26,7 @@ catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs dyna
 #add_dependencies(scanner_space ${catkin_EXPORTED_TARGETS})
 #target_link_libraries(scanner_space ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
 
-add_executable(scanner_space src/scanner_space2.cpp ../libraries/src/processcloud.cpp)
+add_executable(scanner_space src/scanner_space3.cpp ../libraries/src/processcloud.cpp)
 target_compile_options(scanner_space PRIVATE ${OpenMP_FLAGS})
 add_dependencies(scanner_space ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scanner_space ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
