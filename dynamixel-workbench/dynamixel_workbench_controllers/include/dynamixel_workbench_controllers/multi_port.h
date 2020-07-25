@@ -78,7 +78,7 @@ class MultiPort
   double pan_sincronizado, tilt_sincronizado;
 
   // Vinicius - controle de velocidade
-  int pan_moving_speed;
+  int tilt_moving_speed;
 
  public:
   MultiPort();

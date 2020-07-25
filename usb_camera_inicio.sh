@@ -8,5 +8,5 @@ echo 12 | sudo -S chmod a+rw /dev/ttyUSB0
 
 # Setar os parametros pra capturar
 v4l2-ctl --set-ctrl=exposure_auto=1
-v4l2-ctl --set-ctrl=exposure_absolute=1400
+v4l2-ctl --set-ctrl=exposure_absolute=0
 v4l2-ctl --set-ctrl=brightness=90

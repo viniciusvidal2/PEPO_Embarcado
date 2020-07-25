@@ -60,7 +60,6 @@ bool MultiPort::loadDynamixel()
   pan_info->lode_info.protocol_version = node_handle_.param<float>("pan/protocol_version", 2.0);
 
   pan_info->model_id                   = node_handle_.param<int>("pan/id", 1);
-  pan_moving_speed                     = node_handle_.param<int>("pan/moving_speed", 10);
 
   dynamixel_info_.push_back(pan_info);
 
@@ -71,6 +70,8 @@ bool MultiPort::loadDynamixel()
   tilt_info->lode_info.protocol_version = node_handle_.param<float>("tilt/protocol_version", 1.0);
 
   tilt_info->model_id                   = node_handle_.param<int>("tilt/id", 2);
+
+  tilt_moving_speed                     = node_handle_.param<int>("tilt_moving_speed", 10);
 
   dynamixel_info_.push_back(tilt_info);
 
@@ -132,7 +133,7 @@ void MultiPort::setServosControllers()
 
   pan_driver_->writeRegister("led",  1);
 
-  tilt_driver_->writeRegister("moving_speed", 10);
+  tilt_driver_->writeRegister("moving_speed", tilt_moving_speed);
   tilt_driver_->writeRegister("cw_angle_limit" ,  0);
   tilt_driver_->writeRegister("ccw_angle_limit",  4095);
 

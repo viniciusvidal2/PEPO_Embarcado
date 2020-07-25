@@ -1,6 +1,6 @@
 <launch>
 
-<arg name="set_pan_moving_speed" default="10"/>
+<arg name="tilt_moving_speed" default="10"/>
 <arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
 
@@ -9,16 +9,16 @@
 
 <!--Lancar os servos dynamixel-->
 <include file="$(find dynamixel_workbench_controllers)/launch/multi_port_pepo.launch">
-	<arg name="pan_moving_speed" value="$(arg set_pan_moving_speed)"/>
+    <param name="tilt_moving_speed" value="$(arg tilt_moving_speed)"/>
 </include>
 
 <!--Lancar no do driver camera USB-->
 <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
-    <param name="cv_cap_prop_frame_width"  value="1920"/>
-    <param name="cv_cap_prop_frame_height" value="1080"/>
-    <param name="cv_cap_prop_brightness"   value="0.10"/>
-    <param name="cv_cap_prop_exposure"     value="0.20"/>
-    <param name="cv_cap_prop_saturation"   value="0.60"/>
+<!--    <param name="cv_cap_prop_frame_width"  value="1920"/>-->
+<!--    <param name="cv_cap_prop_frame_height" value="1080"/>-->
+<!--    <param name="cv_cap_prop_brightness"   value="0.10"/>-->
+<!--    <param name="cv_cap_prop_exposure"     value="0.20"/>-->
+<!--    <param name="cv_cap_prop_saturation"   value="0.60"/>-->
 </node>
 
 <!--Lancar scanner propriamente dito, online-->

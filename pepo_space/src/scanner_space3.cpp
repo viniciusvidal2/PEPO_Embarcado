@@ -149,9 +149,11 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
-    // Pegando o nome da pasta por parametro
+    // Pegando os parametros
     string nome_param;
-    n_.param("pasta", nome_param, string("Dados_PEPO"));
+    int step = 30; // [DEG]
+    n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
+    n_.param<int   >("step" , step      , 30                  );
 
     // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
@@ -160,8 +162,7 @@ int main(int argc, char **argv)
     system(("rm -r "+pasta).c_str());
     mkdir(pasta.c_str(), 0777);
 
-    // Preenchendo vetor de pan e tilt primeiro para a camera
-    int step = 30; // [DEG]
+    /// Preenchendo vetor de pan e tilt primeiro para a camera
     // Pontos de observacao em tilt
     vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     ntilts = tilts_camera_deg.size();
@@ -278,6 +279,7 @@ int main(int argc, char **argv)
             odom_out.pose.pose.position.x = pan;
             odom_out.pose.pose.position.y = tilt;
             odom_out.pose.pose.position.z = indice_posicao;
+            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_out.header.stamp = msg_out.header.stamp;
             odom_out.header.frame_id = msg_out.header.frame_id;
             od_pub.publish(odom_out);
@@ -346,6 +348,7 @@ int main(int argc, char **argv)
             odom_out.pose.pose.position.x = pan;
             odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
             odom_out.pose.pose.position.z = indice_posicao;
+            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_out.header.stamp = ros::Time::now();
             odom_out.header.frame_id = "map";
             an_pub.publish(odom_out);
