@@ -92,6 +92,8 @@ vector<int> tilts_imagens_pan_atual;
 int ntilts;
 // Ponteiro de cv_bridge para a imagem
 cv_bridge::CvImagePtr image_ptr;
+// Controle de tempo do subscriber do laser
+ros::Time tempo_laser;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
@@ -119,6 +121,8 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 /// Callback do laser e servos
 ///
 void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr &msg_servos){
+    cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size()*msg_cloud->point_step << endl;
+    tempo_laser = ros::Time::now();
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
     // Se nao estamos processando a nuvem e publicando, nem mudando de vista em pan, captar
@@ -137,6 +141,8 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
+    cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
+    tempo_laser = ros::Time::now();
 }
 
 /// Main
