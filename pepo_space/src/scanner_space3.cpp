@@ -78,6 +78,7 @@ bool aquisitar_imagem = false, mudando_vista_pan = false, processar_nuvem_e_envi
 ros::Publisher cl_pub;
 ros::Publisher od_pub;
 ros::Publisher an_pub;
+ros::Publisher im_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Nuvens de pontos e vetor de nuvens parciais
@@ -94,6 +95,7 @@ int ntilts;
 cv_bridge::CvImagePtr image_ptr;
 // Controle de tempo do subscriber do laser
 ros::Time tempo_laser;
+ros::Time tempo_imagem;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
@@ -113,16 +115,18 @@ float raw2deg(int raw, string motor){
 /// Callback da camera
 ///
 void camCallback(const sensor_msgs::ImageConstPtr& msg){
+    //cout << "Tempo entre uma mensagem HD e outra: " << ros::Time::now() - tempo_imagem << endl;
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    //tempo_imagem = ros::Time::now();
 }
 
 /// Callback do laser e servos
 ///
 void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr &msg_servos){
-    cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size()*msg_cloud->point_step << endl;
-    tempo_laser = ros::Time::now();
+    //cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size() << endl;
+    //tempo_laser = ros::Time::now();
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
     // Se nao estamos processando a nuvem e publicando, nem mudando de vista em pan, captar
@@ -130,6 +134,7 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         // Converter mensagem
         PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
         fromROSMsg(*msg_cloud, *cloud);
+        //cout << "   Pontos na mensagem de nuvem instantanea: " << cloud->size() << endl;
         // Transformando para o frame da camera
         pc->transformToCameraFrame(cloud);
         // Aplicar transformada de acordo com o angulo - somente tilt
@@ -141,8 +146,8 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
-    cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
-    tempo_laser = ros::Time::now();
+    //cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
+    //tempo_laser = ros::Time::now();
 }
 
 /// Main
@@ -228,6 +233,7 @@ int main(int argc, char **argv)
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
     an_pub = nh.advertise<nav_msgs::Odometry      >("/poses_space", 10);
+    im_pub = nh.advertise<sensor_msgs::Image      >("/image_space", 10);
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
@@ -248,6 +254,8 @@ int main(int argc, char **argv)
     while(ros::ok()){
         // Se capturamos ja toda a vista em pan, processar e enviar
         if(processar_nuvem_e_enviar){
+            //cout << "Tempo para aquisitar toda a vista em pan: " << ros::Time::now() - tempo_laser << endl;
+            //tempo_laser = ros::Time::now();
             // Filtrar nuvem por voxel
             ROS_INFO("Filtrando nuvem parcial ...");
             VoxelGrid<PointXYZ> voxel;
@@ -290,6 +298,7 @@ int main(int argc, char **argv)
             odom_out.header.frame_id = msg_out.header.frame_id;
             od_pub.publish(odom_out);
             cl_pub.publish(msg_out);
+            //cout << "Tempo para processar nuvem de pontos e enviar para fog : " << ros::Time::now() - tempo_laser << "   Tamanho da nuvem aqui: " << parcial_color->size() << endl;
             // Zerando parcial para proxima vista em pan e vetor de imagens
             parcial_color->clear(); imagens_baixa_resolucao.clear(); tilts_imagens_pan_atual.clear();
             // Vamos mudar de angulo em pan
@@ -312,10 +321,12 @@ int main(int argc, char **argv)
             }
             // Chaveando flag de processamento
             processar_nuvem_e_enviar = false;
+            //tempo_laser = ros::Time::now();
         }
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
+            //tempo_imagem = ros::Time::now();
             // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
             if(!iniciar_laser) iniciar_laser = true;
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
@@ -332,7 +343,7 @@ int main(int argc, char **argv)
                 mudando_vista_pan = false;
             // Salvar a imagem na pasta certa
             string nome_imagem_atual;
-            if(indice_posicao < 10){
+            if(indice_posicao+1 < 10){
                 nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             } else if(indice_posicao+1 < 100) {
@@ -342,22 +353,30 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_"+std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             }
+	    // Publicar imagem em HD para a FOG salvar
+	    //cv_bridge::CvImage msg_im_cv;
+	    //msg_im_cv.header.frame_id = "map";
+	    //msg_im_cv.header.stamp = ros::Time::now();
+	    //msg_im_cv.encoding = sensor_msgs::image_encodings::BGR8;
+	    //msg_im_cv.image = image_ptr->image;
             // Reduzir resolucao
             Mat im;
             image_ptr->image.copyTo(im);
             resize(im, im, Size(im.cols/4, im.rows/4));
-            // Salvar imagem em baixa resolucao e odometria local
+            // Salvar imagem em baixa resolucao e odometria local na RAM
             imagens_baixa_resolucao.push_back(im);
             tilts_imagens_pan_atual.push_back(tilt);
             // Enviar pose da camera atual para o fog otimizar
             nav_msgs::Odometry odom_out;
             odom_out.pose.pose.position.x = pan;
-            odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
+            odom_out.pose.pose.position.y = tilt;
             odom_out.pose.pose.position.z = indice_posicao;
             odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_out.header.stamp = ros::Time::now();
             odom_out.header.frame_id = "map";
+	    //im_pub.publish(msg_im_cv.toImageMsg());
             an_pub.publish(odom_out);
+            //cout << "Tempo para processar a imagem e salvar: " << ros::Time::now() - tempo_imagem << endl;
             // Se ainda nao inteiramos todos os niveis de tilt, avancar
             if(tilts_imagens_pan_atual.size() < ntilts){
                 // Avancar uma posicao no vetor, se possivel
@@ -379,7 +398,7 @@ int main(int argc, char **argv)
 
         // Roda o loop de ROS
         ros::spinOnce();
-        r.sleep();
+        //r.sleep();
     }
 
     return 0;
