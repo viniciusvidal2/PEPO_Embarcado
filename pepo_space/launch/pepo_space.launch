@@ -3,7 +3,8 @@
 <arg name="tilt_moving_speed" default="10"/>
 <arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
-<arg name="step"  default="30"/>
+<arg name="inicio_pan" default="0"/>
+<arg name="fim_pan"    default="360"/>
 
 <!--Lancar no do driver do laser-->
 <include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
@@ -25,12 +26,13 @@
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
-    <param name="step"  value="$(arg step)" />
+    <param name="inicio_pan" value="$(arg inicio_pan)"/>
+    <param name="fim_pan"    value="$(arg fim_pan)"   />
 </node>
 
 <!--Lancar no de comunicacao para enviar ao desktop-->
-<!--<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
-</node>-->
+<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
+</node>
 
 <!--Lancar RViz com configuracao salva-->
 <group if="$(arg visualizar)">
