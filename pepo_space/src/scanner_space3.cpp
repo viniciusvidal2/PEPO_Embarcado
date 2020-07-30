@@ -178,6 +178,7 @@ int main(int argc, char **argv)
     // Pontos de observacao em tilt
     vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     ntilts = tilts_camera_deg.size();
+    int taxa_envio_nuvens = (ntilts == 4) ? 2 : 1; // De quanto em quanto mandaremos a nuvem para a fog, para ela saber do outro lado
     // Pontos de observacao em pan
     int vistas_pan = int(final_scanner_deg_pan - inicio_scanner_deg_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
@@ -292,6 +293,7 @@ int main(int argc, char **argv)
             odom_out.pose.pose.position.y = tilt;
             odom_out.pose.pose.position.z = indice_posicao;
             odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
+            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
             odom_out.header.stamp = msg_out.header.stamp;
             odom_out.header.frame_id = msg_out.header.frame_id;
             od_pub.publish(odom_out);
@@ -365,7 +367,7 @@ int main(int argc, char **argv)
             odom_out.header.frame_id = "map";
             an_pub.publish(odom_out);
             // Se ainda nao inteiramos todos os niveis de tilt, avancar
-            if(tilts_imagens_pan_atual.size() < 2){ // Mudando para somente dois niveis tilt, para limitar a banda necessaria de rede !!
+            if(tilts_imagens_pan_atual.size() < taxa_envio_nuvens){ // Mudando para somente dois niveis tilt, para limitar a banda necessaria de rede !!
                 // Avancar uma posicao no vetor, se possivel
                 dynamixel_workbench_msgs::JointCommand cmd;
                 cmd.request.unit = "raw";
