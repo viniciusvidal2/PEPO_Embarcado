@@ -10,3 +10,4 @@ echo 12 | sudo -S chmod a+rw /dev/ttyUSB0
 v4l2-ctl --set-ctrl=exposure_auto=1
 v4l2-ctl --set-ctrl=exposure_absolute=0
 v4l2-ctl --set-ctrl=brightness=90
+v4l2-ctl --set-ctrl=backlight_compensation=0

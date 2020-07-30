@@ -121,8 +121,8 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 /// Callback do laser e servos
 ///
 void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr &msg_servos){
-    cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size()*msg_cloud->point_step << endl;
-    tempo_laser = ros::Time::now();
+//    cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size()*msg_cloud->point_step << endl;
+//    tempo_laser = ros::Time::now();
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
     // Se nao estamos processando a nuvem e publicando, nem mudando de vista em pan, captar
@@ -141,8 +141,8 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
-    cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
-    tempo_laser = ros::Time::now();
+//    cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
+//    tempo_laser = ros::Time::now();
 }
 
 /// Main
@@ -257,10 +257,10 @@ int main(int argc, char **argv)
             // Filtrar nuvem por voxel
             ROS_INFO("Filtrando nuvem parcial ...");
             VoxelGrid<PointXYZ> voxel;
-            float ls = 0.02;
+            float ls = 0.01;
             voxel.setLeafSize(ls, ls, ls);
             voxel.setInputCloud(parcial);
-            //voxel.filter(*parcial);
+            voxel.filter(*parcial);
             // Colorir nuvem com todas as imagens
             ROS_INFO("Colorindo nuvem parcial ...");
             PointCloud<PointT>::Ptr parcial_color (new PointCloud<PointT>);
@@ -338,14 +338,14 @@ int main(int argc, char **argv)
                 mudando_vista_pan = false;
             // Salvar a imagem na pasta certa
             string nome_imagem_atual;
-            if(indice_posicao < 10){
+            if(indice_posicao + 1 < 10){
                 nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             } else if(indice_posicao+1 < 100) {
-                nome_imagem_atual = "imagem_0"+std::to_string(indice_posicao+1);
+                nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             } else {
-                nome_imagem_atual = "imagem_"+std::to_string(indice_posicao+1);
+                nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             }
             // Reduzir resolucao
@@ -365,7 +365,7 @@ int main(int argc, char **argv)
             odom_out.header.frame_id = "map";
             an_pub.publish(odom_out);
             // Se ainda nao inteiramos todos os niveis de tilt, avancar
-            if(tilts_imagens_pan_atual.size() < ntilts){
+            if(tilts_imagens_pan_atual.size() < 2){ // Mudando para somente dois niveis tilt, para limitar a banda necessaria de rede !!
                 // Avancar uma posicao no vetor, se possivel
                 dynamixel_workbench_msgs::JointCommand cmd;
                 cmd.request.unit = "raw";
