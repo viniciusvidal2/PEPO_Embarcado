@@ -363,6 +363,7 @@ int main(int argc, char **argv)
             odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
             odom_out.pose.pose.position.z = indice_posicao;
             odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
+            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
             odom_out.header.stamp = ros::Time::now();
             odom_out.header.frame_id = "map";
             an_pub.publish(odom_out);
