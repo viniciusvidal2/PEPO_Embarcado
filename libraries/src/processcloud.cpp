@@ -179,3 +179,19 @@ string ProcessCloud::getFolderName(){
     return pasta;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
+void ProcessCloud::cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud){
+    // Objeto para extrair indices com coordenadas na origem - ruido
+    ExtractIndices<PointXYZ> extract;
+    PointIndices::Ptr indices (new PointIndices);
+    // Varrer a nuvem atras de pontos na origem
+    for(size_t i=0; i<cloud->size(); i++){
+        if((*cloud)[i].x == 0 && (*cloud)[i].y == 0 && (*cloud)[i].z == 0)
+            indices->indices.push_back(i);
+    }
+    // Extrair fora esses pontos
+    extract.setInputCloud(cloud);
+    extract.setNegative(true);
+    extract.setIndices(indices);
+    extract.filter(*cloud);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////

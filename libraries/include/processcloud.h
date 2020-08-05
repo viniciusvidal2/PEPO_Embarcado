@@ -88,6 +88,7 @@ public:
   string getFolderName();
   void setFolderName(string name);
   Matrix3f euler2matrix(float r, float p, float y);
+  void cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud);
 
 private:
 

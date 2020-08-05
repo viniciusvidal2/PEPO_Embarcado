@@ -255,13 +255,15 @@ int main(int argc, char **argv)
     while(ros::ok()){
         // Se capturamos ja toda a vista em pan, processar e enviar
         if(processar_nuvem_e_enviar){
-            // Filtrar nuvem por voxel
             ROS_INFO("Filtrando nuvem parcial ...");
+            // Excluindo pontos de leituras vazias
+            pc->cleanMisreadPoints(parcial);
+            // Filtrar nuvem por voxel
             VoxelGrid<PointXYZ> voxel;
             float ls = 0.01;
             voxel.setLeafSize(ls, ls, ls);
             voxel.setInputCloud(parcial);
-            voxel.filter(*parcial);
+            //voxel.filter(*parcial);
             // Colorir nuvem com todas as imagens
             ROS_INFO("Colorindo nuvem parcial ...");
             PointCloud<PointT>::Ptr parcial_color (new PointCloud<PointT>);
@@ -299,9 +301,13 @@ int main(int argc, char **argv)
             od_pub.publish(odom_out);
             cl_pub.publish(msg_out);
             // Zerando parcial para proxima vista em pan e vetor de imagens
-            parcial_color->clear(); imagens_baixa_resolucao.clear(); tilts_imagens_pan_atual.clear();
-            // Vamos mudar de angulo em pan
-            mudando_vista_pan = true;
+            parcial_color->clear();
+            // Vamos mudar de angulo em pan, se for o caso, e ai sim zerar os vetores
+            if((indice_posicao + 1) % ntilts == 0){
+		    mudando_vista_pan = true;
+		    imagens_baixa_resolucao.clear();
+		    tilts_imagens_pan_atual.clear();
+	    }
             // Enviar para a proxima posicao
             if(indice_posicao + 1 < pans_raw.size()){
                 indice_posicao++; // Proximo ponto de observacao
@@ -329,7 +335,7 @@ int main(int argc, char **argv)
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
             // Libera captura da imagem
             aquisitar_imagem = true;
-            for(int i=0; i<15; i++){
+            for(int i=0; i<30; i++){
                 r.sleep();
                 ros::spinOnce();
             }
