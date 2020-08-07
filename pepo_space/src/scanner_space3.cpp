@@ -159,13 +159,26 @@ int main(int argc, char **argv)
     string nome_param;
     int step = 30; // [DEG]
     float inicio_scanner_deg_pan, final_scanner_deg_pan;
+    int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
     n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
     n_.param<int   >("step" , step      , 30                  );
     n_.param<float >("inicio_pan", inicio_scanner_deg_pan, 0  );
     n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360);
+    n_.param<int   >("qualidade" , qualidade             , 2  );
     inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? deg_min_pan : inicio_scanner_deg_pan;
     final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? deg_max_pan : final_scanner_deg_pan;
     if((final_scanner_deg_pan - inicio_scanner_deg_pan) < step || (final_scanner_deg_pan - inicio_scanner_deg_pan) < 0) final_scanner_deg_pan = inicio_scanner_deg_pan + step;
+    switch(qualidade){
+        case 1:
+            qualidade = 15;
+            break;
+        case 1:
+            qualidade = 25;
+            break;
+        case 1:
+            qualidade = 30;
+            break;
+    }
 
     // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
@@ -320,7 +333,7 @@ int main(int argc, char **argv)
                 ROS_INFO("Aquisitamos tudo, finalizando ...");
                 cmd_led.request.led = 1; // LED continuo
                 comando_leds.call(cmd_led);
-                cmd.request.pan_pos  = pans_raw[ntilts*3]; // Quase no inicio, pra quando ligar dar uma mexida
+                cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
                 cmd.request.tilt_pos = raw_hor_tilt;
                 comando_motor.call(cmd);
             }
@@ -335,7 +348,7 @@ int main(int argc, char **argv)
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
             // Libera captura da imagem
             aquisitar_imagem = true;
-            for(int i=0; i<30; i++){
+            for(int i=0; i<qualidade; i++){
                 r.sleep();
                 ros::spinOnce();
             }

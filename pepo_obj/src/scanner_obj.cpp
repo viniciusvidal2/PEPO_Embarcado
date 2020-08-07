@@ -47,7 +47,7 @@ typedef PointXYZRGB PointT;
 ///
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 80; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 400; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Nuvem de pontos parciais
@@ -109,7 +109,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 8); // Z metros de profundidade
+            pass.setFilterLimits(0, 80); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");

@@ -33,13 +33,13 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem){
 void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale){
     // Matriz intrinseca e extrinseca
     Matrix3f K;
-    K << 1525.4  /scale,   -0.024/scale, 961/scale,
-           -0.001/scale, 1515.9  /scale, 541/scale,
+    K << 1427.1  /scale,   -0.063/scale, 987.9/scale,
+            0.041/scale, 1449.4  /scale, 579.4/scale,
             0          ,    0          ,   1      ;
     MatrixXf Rt(3, 4);                               // Otimizacao com Matlab
-    Rt << 1, 0, 0,  0.053,
-          0, 1, 0,  0.116,
-          0, 0, 1,  0.121;
+    Rt << 1, 0, 0,  0.0077,
+          0, 1, 0,  0.0329,
+          0, 0, 1,  0.0579;
     MatrixXf P(3, 4);
     P = K*Rt;
 #pragma omp parallel for
