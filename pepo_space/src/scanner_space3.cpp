@@ -172,10 +172,10 @@ int main(int argc, char **argv)
         case 1:
             qualidade = 15;
             break;
-        case 1:
+        case 2:
             qualidade = 25;
             break;
-        case 1:
+        case 3:
             qualidade = 30;
             break;
     }
