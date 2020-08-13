@@ -162,8 +162,8 @@ int main(int argc, char **argv)
     int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
     n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
     n_.param<int   >("step" , step      , 30                  );
-    n_.param<float >("inicio_pan", inicio_scanner_deg_pan, 0  );
-    n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360);
+    n_.param<float >("inicio_pan", inicio_scanner_deg_pan, step/2      );
+    n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360 - step/2);
     n_.param<int   >("qualidade" , qualidade             , 2  );
     inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? deg_min_pan : inicio_scanner_deg_pan;
     final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? deg_max_pan : final_scanner_deg_pan;
@@ -268,6 +268,11 @@ int main(int argc, char **argv)
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
+	    // Se estavamos mudando de vista pan, nao estamo mais
+	    if(mudando_vista_pan){
+	        mudando_vista_pan = false;
+		sleep(1); // Garantir o servo no lugar
+	    }
             // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
             if(!iniciar_laser) iniciar_laser = true;
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
@@ -278,10 +283,7 @@ int main(int argc, char **argv)
                 ros::spinOnce();
             }
             // Chavear a flag
-            aquisitar_imagem = false;
-            // Se estavamos mudando de vista pan, nao estamos mais
-            if(mudando_vista_pan)
-                mudando_vista_pan = false;
+            aquisitar_imagem = false;            
             // Salvar a imagem na pasta certa
             string nome_imagem_atual;
             if(indice_posicao + 1 < 10){
