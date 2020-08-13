@@ -2,7 +2,24 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
-
+    // Matriz intrinseca com imagem em Full HD
+    K1 << 1427.1  ,   -0.063, 987.9,
+             0.041, 1449.4  , 579.4,
+             0    ,    0    ,   1  ;
+    // Matriz intrinseca com imagem em resolucao simplificada por 4
+    K4 << 365.29  ,   0.0472, 247.18,
+            0.0157, 354.50  , 142.36,
+            0     ,   0     ,   1   ;
+    // Matriz extrinseca com imagem em Full HD
+    Rt1.resize(3, 4);
+    Rt1 << 1, 0, 0,  0.0077,
+           0, 1, 0,  0.0329,
+           0, 0, 1,  0.0579;
+    // Matriz extrinseca com imagem em resolucao simplificada por 4
+    Rt4.resize(3, 4);
+    Rt4 << 1, 0, 0,  0.0226,
+           0, 1, 0,  0.0938,
+           0, 0, 1,  0.0221;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ProcessCloud::~ProcessCloud(){
@@ -31,17 +48,13 @@ void ProcessCloud::transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem){
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCloud::colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale){
-    // Matriz intrinseca e extrinseca
-    Matrix3f K;
-    K << 1427.1  /scale,   -0.063/scale, 987.9/scale,
-            0.041/scale, 1449.4  /scale, 579.4/scale,
-            0          ,    0          ,   1      ;
-    MatrixXf Rt(3, 4);                               // Otimizacao com Matlab
-    Rt << 1, 0, 0,  0.0077,
-          0, 1, 0,  0.0329,
-          0, 0, 1,  0.0579;
+    // Matriz da camera segundo escala da imagem
     MatrixXf P(3, 4);
-    P = K*Rt;
+    if(scale == 1)
+        P = K1*Rt1;
+    else if(scale == 4)
+        P = K4*Rt4;
+
 #pragma omp parallel for
     for(size_t i = 0; i < cloud_in->size(); i++){
         // Pegar ponto em coordenadas homogeneas

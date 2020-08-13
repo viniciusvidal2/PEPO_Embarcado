@@ -191,13 +191,12 @@ int main(int argc, char **argv)
     // Pontos de observacao em tilt
     vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     ntilts = tilts_camera_deg.size();
-    int taxa_envio_nuvens = (ntilts == 4) ? 2 : 1; // De quanto em quanto mandaremos a nuvem para a fog, para ela saber do outro lado
     // Pontos de observacao em pan
     int vistas_pan = int(final_scanner_deg_pan - inicio_scanner_deg_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
-    if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 10) pans_camera_deg.push_back(final_scanner_deg_pan);
+    if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
     // Enchendo vetores de waypoints de imagem em deg e raw globais
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
@@ -233,7 +232,7 @@ int main(int argc, char **argv)
     cmd.request.tilt_pos = tilts_raw[0];
 
     ros::Rate r(20);
-    ROS_ERROR("Esperando a comunicacao com os servos !! ...");
+    ROS_WARN("Esperando a comunicacao com os servos !! ...");
     while(!comando_motor.call(cmd)){
         ros::spinOnce();
         r.sleep();
@@ -266,16 +265,67 @@ int main(int argc, char **argv)
     comando_leds.call(cmd_led);
 
     while(ros::ok()){
-        // Se capturamos ja toda a vista em pan, processar e enviar
+
+        // Controlando aqui o caminho dos servos, ate chegar ao final
+        if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
+            // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
+            if(!iniciar_laser) iniciar_laser = true;
+            ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
+            // Libera captura da imagem
+            aquisitar_imagem = true;
+            for(int i=0; i<qualidade; i++){
+                r.sleep();
+                ros::spinOnce();
+            }
+            // Chavear a flag
+            aquisitar_imagem = false;
+            // Se estavamos mudando de vista pan, nao estamos mais
+            if(mudando_vista_pan)
+                mudando_vista_pan = false;
+            // Salvar a imagem na pasta certa
+            string nome_imagem_atual;
+            if(indice_posicao + 1 < 10){
+                nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
+                pc->saveImage(image_ptr->image, nome_imagem_atual);
+            } else if(indice_posicao+1 < 100) {
+                nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
+                pc->saveImage(image_ptr->image, nome_imagem_atual);
+            } else {
+                nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
+                pc->saveImage(image_ptr->image, nome_imagem_atual);
+            }
+            // Reduzir resolucao
+            Mat im;
+            image_ptr->image.copyTo(im);
+            resize(im, im, Size(im.cols/4, im.rows/4));
+            // Salvar imagem em baixa resolucao e odometria local
+            imagens_baixa_resolucao.push_back(im);
+            tilts_imagens_pan_atual.push_back(tilt);
+            // Enviar pose da camera atual para o fog otimizar
+            nav_msgs::Odometry odom_out;
+            odom_out.pose.pose.position.x = pan;
+            odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
+            odom_out.pose.pose.position.z = indice_posicao;
+            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
+            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
+            odom_out.header.stamp = ros::Time::now();
+            odom_out.header.frame_id = "map";
+            an_pub.publish(odom_out);
+            // Enviando para a fog todas as vezes, usar mais a rede, mas deixar os nos menos ociosos
+            // A outra rotina vai enviar para a proxima vista em pan para comecarmos novamente
+            processar_nuvem_e_enviar = true;
+        }
+
+        // Se capturamos ja toda a parte prevista em pan e tilt, processar e enviar
         if(processar_nuvem_e_enviar){
             ROS_INFO("Filtrando nuvem parcial ...");
             // Excluindo pontos de leituras vazias
             pc->cleanMisreadPoints(parcial);
             // Filtrar nuvem por voxel
-            VoxelGrid<PointXYZ> voxel;
-            float ls = 0.01;
-            voxel.setLeafSize(ls, ls, ls);
-            voxel.setInputCloud(parcial);
+            //VoxelGrid<PointXYZ> voxel;
+            //float ls = 0.01;
+            //voxel.setLeafSize(ls, ls, ls);
+            //voxel.setInputCloud(parcial);
             //voxel.filter(*parcial);
             // Colorir nuvem com todas as imagens
             ROS_INFO("Colorindo nuvem parcial ...");
@@ -339,70 +389,6 @@ int main(int argc, char **argv)
             }
             // Chaveando flag de processamento
             processar_nuvem_e_enviar = false;
-        }
-
-        // Controlando aqui o caminho dos servos, ate chegar ao final
-        if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
-            // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
-            if(!iniciar_laser) iniciar_laser = true;
-            ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
-            // Libera captura da imagem
-            aquisitar_imagem = true;
-            for(int i=0; i<qualidade; i++){
-                r.sleep();
-                ros::spinOnce();
-            }
-            // Chavear a flag
-            aquisitar_imagem = false;
-            // Se estavamos mudando de vista pan, nao estamos mais
-            if(mudando_vista_pan)
-                mudando_vista_pan = false;
-            // Salvar a imagem na pasta certa
-            string nome_imagem_atual;
-            if(indice_posicao + 1 < 10){
-                nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            } else if(indice_posicao+1 < 100) {
-                nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            } else {
-                nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            }
-            // Reduzir resolucao
-            Mat im;
-            image_ptr->image.copyTo(im);
-            resize(im, im, Size(im.cols/4, im.rows/4));
-            // Salvar imagem em baixa resolucao e odometria local
-            imagens_baixa_resolucao.push_back(im);
-            tilts_imagens_pan_atual.push_back(tilt);
-            // Enviar pose da camera atual para o fog otimizar
-            nav_msgs::Odometry odom_out;
-            odom_out.pose.pose.position.x = pan;
-            odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
-            odom_out.pose.pose.position.z = indice_posicao;
-            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
-            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
-            odom_out.header.stamp = ros::Time::now();
-            odom_out.header.frame_id = "map";
-            an_pub.publish(odom_out);
-            // Se ainda nao inteiramos todos os niveis de tilt, avancar
-            if(tilts_imagens_pan_atual.size() < taxa_envio_nuvens){ // Mudando para somente dois niveis tilt, para limitar a banda necessaria de rede !!
-                // Avancar uma posicao no vetor, se possivel
-                dynamixel_workbench_msgs::JointCommand cmd;
-                cmd.request.unit = "raw";
-                if(indice_posicao + 1 < pans_raw.size()){
-                    indice_posicao++; // Proximo ponto de observacao
-                    cmd.request.pan_pos  = pans_raw[indice_posicao];
-                    cmd.request.tilt_pos = tilts_raw[indice_posicao];
-                    if(comando_motor.call(cmd))
-                        ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
-                }
-            } else {
-                // Se ja inteiramos, aguardar as aquisicoes, colorir a nuvem e enviar para fog
-                // A outra rotina vai enviar para a proxima vista em pan para comecarmos novamente
-                processar_nuvem_e_enviar = true;
-            }
         }
 
         // Roda o loop de ROS

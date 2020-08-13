@@ -94,6 +94,10 @@ private:
 
   /// Variaveis
   std::string pasta;     // Nome da pasta a salvar as coisas
+  Matrix3f K1;
+  MatrixXf Rt1;
+  Matrix3f K4;
+  MatrixXf Rt4;
 
 };
 
