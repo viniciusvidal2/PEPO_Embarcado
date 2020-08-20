@@ -18,13 +18,13 @@ https://github.com/Livox-SDK/Livox-SDK
 
 5- Instalar image_geometry: sudo apt install ros-melodic-image-geometry
 
-6- Clonar o repositório B9 no branch robo e mandar catkin_make
+6- Clonar o repositório PEPO_Embarcadp e mandar catkin_make
 
 7- Alterar os arquivos de cmake dos pacotes image_geometry e cvbridge, lá na pasta do ROS em opt, como administrador, para buscar por pasta "opencv4", ao invés de só "opencv".
 
 8- Mandar compilar tudo novamente, deveria encontrar tudo e dar somente uns warnings.
 
-9- Instalar as bibliotecas de python para os servos:
+9- Instalar as bibliotecas de python para os servos: - NAO HA MAIS
 sudo apt install python3-pip
 sudo pip3 install adafruit-circuitpython-servokit
 Para testar:
@@ -42,5 +42,10 @@ sudo make installfw
 sudo modprobe cfg80211
 sudo insmod rtl8188fu.ko
 
+11- Garantir inicio das coisas no sistema:
+dar source nos arquivos setup de workspace ros la no inicio do .bashrc
+adicionar tudo no startup applications (led, usb e camera): python3 /home/pepo/pepo_ws/src/PEPO_Embarcado/led_control/scripts/inicio_led.py \\\ /home/pepo/pepo_ws/src/PEPO_Embarcado/usb_camera_inicio.sh
+
+12- Adiconar o hostname do computador remoto e o ip no arquivo /etc/hosts como sudo, e no remoto adicionar o nosso ip com nome grin apos no mesmo arquivo, para conectarmos usando aplicacao no Qt.
 
 
