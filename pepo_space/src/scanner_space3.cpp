@@ -107,7 +107,7 @@ float raw2deg(int raw, string motor){
     if(motor == "pan")
         return (float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
     else
-        return (float(raw) - raw_min_tilt)*deg_raw + deg_min_tilt;
+        return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -199,7 +199,7 @@ int main(int argc, char **argv)
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
-    if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
+    //if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
     // Enchendo vetores de waypoints de imagem em deg e raw globais
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
@@ -287,7 +287,14 @@ int main(int argc, char **argv)
                 ros::spinOnce();
             }
             // Chavear a flag
-            aquisitar_imagem = false;            
+            aquisitar_imagem = false;
+            // Reduzir resolucao
+            Mat im;
+            image_ptr->image.copyTo(im);
+            resize(im, im, Size(im.cols/4, im.rows/4));
+            // Salvar imagem em baixa resolucao e odometria local
+            imagens_baixa_resolucao.push_back(im);
+            tilts_imagens_pan_atual.push_back(tilt);
             // Salvar a imagem na pasta certa
             string nome_imagem_atual;
             if(indice_posicao + 1 < 10){
@@ -300,13 +307,6 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             }
-            // Reduzir resolucao
-            Mat im;
-            image_ptr->image.copyTo(im);
-            resize(im, im, Size(im.cols/4, im.rows/4));
-            // Salvar imagem em baixa resolucao e odometria local
-            imagens_baixa_resolucao.push_back(im);
-            tilts_imagens_pan_atual.push_back(tilt);
             // Enviar pose da camera atual para o fog otimizar
             nav_msgs::Odometry odom_out;
             odom_out.pose.pose.position.x = pan;
