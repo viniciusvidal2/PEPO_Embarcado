@@ -110,7 +110,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             aquisitar_imagem = false;
             Mat temp_im;
             imptr->image.copyTo(temp_im);
-            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 4);
+            //resize(temp_im, temp_im, Size(temp_im.cols/4, temp_im.rows/4));
+            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1);
             aquisitar_imagem = true;
 //            // Filtrando por voxels e outliers - essa vai para visualizacao
 //            VoxelGrid<PointT> voxel;
