@@ -80,6 +80,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
         // Ler a mensagem e acumular na nuvem total por N vezes
         PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
         fromROSMsg (*msg, *cloud);
+        pc->cleanMisreadPoints(cloud);
         *parcial += *cloud;
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
@@ -192,8 +193,8 @@ int main(int argc, char **argv)
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
   // Publicadores
-  im_pub = nh.advertise<sensor_msgs::Image      >("/image_obj", 10);
-  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_obj", 10);
+  im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp", 10);
+  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_temp", 10);
 
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
   ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);

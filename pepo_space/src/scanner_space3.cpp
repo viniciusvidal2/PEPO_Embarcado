@@ -78,6 +78,7 @@ bool aquisitar_imagem = false, mudando_vista_pan = false, processar_nuvem_e_envi
 ros::Publisher cl_pub;
 ros::Publisher od_pub;
 ros::Publisher an_pub;
+ros::Publisher im_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Nuvens de pontos e vetor de nuvens parciais
@@ -106,7 +107,7 @@ float raw2deg(int raw, string motor){
     if(motor == "pan")
         return (float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
     else
-        return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
+        return (float(raw) - raw_min_tilt)*deg_raw + deg_min_tilt;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -116,6 +117,8 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    // Publicando a imagem para ver o no de comunicacao com o desktop
+    im_pub.publish(*msg);
 }
 
 /// Callback do laser e servos
@@ -186,7 +189,8 @@ int main(int argc, char **argv)
     string pasta = string(home)+"/Desktop/"+nome_param.c_str()+"/";
     system(("rm -r "+pasta).c_str());
     mkdir(pasta.c_str(), 0777);
-    ///Preenchendo vetor de pan e tilt primeiro
+
+    /// Preenchendo vetor de pan e tilt primeiro para a camera
     // Pontos de observacao em tilt
     vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     ntilts = tilts_camera_deg.size();
@@ -195,7 +199,7 @@ int main(int argc, char **argv)
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
-    //if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
+    if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
     // Enchendo vetores de waypoints de imagem em deg e raw globais
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
@@ -246,6 +250,7 @@ int main(int argc, char **argv)
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
     an_pub = nh.advertise<nav_msgs::Odometry      >("/poses_space", 10);
+    im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp" , 10);
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
@@ -282,11 +287,7 @@ int main(int argc, char **argv)
                 ros::spinOnce();
             }
             // Chavear a flag
-            aquisitar_imagem = false;
-            // Reduzir resolucao
-	    Mat im;
-            image_ptr->image.copyTo(im);
-            resize(im, im, Size(im.cols/4, im.rows/4));	    
+            aquisitar_imagem = false;            
             // Salvar a imagem na pasta certa
             string nome_imagem_atual;
             if(indice_posicao + 1 < 10){
@@ -299,6 +300,10 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             }
+            // Reduzir resolucao
+            Mat im;
+            image_ptr->image.copyTo(im);
+            resize(im, im, Size(im.cols/4, im.rows/4));
             // Salvar imagem em baixa resolucao e odometria local
             imagens_baixa_resolucao.push_back(im);
             tilts_imagens_pan_atual.push_back(tilt);

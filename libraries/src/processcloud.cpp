@@ -7,8 +7,8 @@ ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
              0.041, 1449.4  , 579.4,
              0    ,    0    ,   1  ;
     // Matriz intrinseca com imagem em resolucao simplificada por 4
-    K4 << 375.29  ,   0.0472, 241.18,
-            0.0157, 374.50  , 137.36,
+    K4 << 375.29  ,   0.0472, 245.18,
+            0.0157, 374.50  , 142.36,
             0     ,   0     ,   1   ;
     // Matriz extrinseca com imagem em Full HD
     Rt1.resize(3, 4);
