@@ -179,7 +179,7 @@ int main(int argc, char **argv)
             qualidade = 25;
             break;
         case 3:
-            qualidade = 30;
+            qualidade = 100;
             break;
     }
 

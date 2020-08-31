@@ -19,27 +19,15 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include "../msgs/imagem.pb.h"
-#include "../msgs/nuvem.pb.h"
-#include "google/protobuf/io/coded_stream.h"
-
 #include "../../libraries/include/processcloud.h"
 
-#include <zmq.hpp>
-#include <zmq_utils.h>
 
-//using namespace ImagemMsgProto;
-//using namespace NuvemMsgProto;
 using namespace pcl;
 using namespace cv;
 using namespace std;
-//using namespace zmq;
 
 typedef PointXYZRGB PointT;
 
-//void *context;
-//void *im_sender;
-//void *cl_sender;
 
 cv_bridge::CvImagePtr imptr;
 PointCloud<PointXYZ>::Ptr parcial;
@@ -68,10 +56,6 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     out_msg.image    = im;
 
     im_pub.publish(out_msg.toImageMsg());
-//    vector<uchar> buffer_imagem;
-//    imencode(".jpg", im, buffer_imagem);
-    // Envia pelo socket
-//    zmq_send(im_sender, buffer_imagem.data(), buffer_imagem.size(), 0);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
@@ -84,7 +68,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
         // Se acumulou o suficiente, trabalhar e encaminhar
-        if(contador_nuvem == 60){ // Rapidinho assim mesmo
+        if(contador_nuvem == 100){ // Rapidinho assim mesmo
             m.lock();
             // Injetando cor na nuvem
             PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
@@ -100,12 +84,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             parcial->clear();
             // Transformando nuvem para o frame da camera
             pc->transformToCameraFrame(cloud_color);
-//            // Filtrar profundidade pra nao vir aquilo tudo de coisa
-//            PassThrough<PointT> pass;
-//            pass.setInputCloud(cloud_color);
-//            pass.setFilterFieldName("z");
-//            pass.setFilterLimits(0, 8); // Z metros de profundidade
-//            pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             aquisitar_imagem = false;
             Mat temp_im;
@@ -113,11 +91,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             //resize(temp_im, temp_im, Size(temp_im.cols/4, temp_im.rows/4));
             pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1);
             aquisitar_imagem = true;
-//            // Filtrando por voxels e outliers - essa vai para visualizacao
-//            VoxelGrid<PointT> voxel;
-//            voxel.setInputCloud(cloud_color);
-//            voxel.setLeafSize(0.03, 0.03, 0.03);
-//            voxel.filter(*cloud_color);
             // Zerando contador
             contador_nuvem = 0;
             // Publica para o usuario
@@ -128,23 +101,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             cl_pub.publish(cloud_msg);
             cloud_color->clear();
 
-//            // Cria objeto do protobuf
-//            Nuvem cloud_proto;
-//            string buffer_nuvem;
-//            cloud_proto.set_name("pepo");
-//            cloud_proto.set_size(cloud_color->size());
-//            PointT cloud_point;
-//            for(size_t k=0; k<cloud_color->size(); k++){
-//                cloud_point = cloud_color->points[k];
-
-//                Nuvem::Ponto *p = cloud_proto.add_pontos();
-//                p->set_x(cloud_point.x); p->set_y(cloud_point.y); p->set_z(cloud_point.z);
-//                p->set_r(cloud_point.r); p->set_g(cloud_point.g); p->set_b(cloud_point.b);
-//            }
-//            cloud_color->clear();
-//            // Serializando a mensagem e enviando
-//            cloud_proto.SerializeToString(&buffer_nuvem);
-//            zmq_send(cl_sender, buffer_nuvem.data(), buffer_nuvem.size(), 0);
             m.unlock();
         } else {
             contador_nuvem++;
@@ -156,12 +112,6 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "encaminha_dados_desktop");
     ros::NodeHandle nh;
-
-//    context = zmq_ctx_new();
-//    cl_sender = zmq_socket(context, ZMQ_PUSH);
-//    int bind1 = zmq_bind(cl_sender, "tcp://*:5558");
-//    im_sender = zmq_socket(context, ZMQ_PUSH);
-//    int bind = zmq_bind(im_sender, "tcp://*:5557");
 
     // Inicia nuvem parcial acumulada a cada passagem do laser
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
