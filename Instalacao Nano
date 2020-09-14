@@ -18,7 +18,7 @@ https://github.com/Livox-SDK/Livox-SDK
 
 5- Instalar image_geometry: sudo apt install ros-melodic-image-geometry
 
-6- Clonar o repositório PEPO_Embarcadp e mandar catkin_make
+6- Clonar o repositório PEPO_Embarcado e mandar catkin_make
 
 7- Alterar os arquivos de cmake dos pacotes image_geometry e cvbridge, lá na pasta do ROS em opt, como administrador, para buscar por pasta "opencv4", ao invés de só "opencv".
 
