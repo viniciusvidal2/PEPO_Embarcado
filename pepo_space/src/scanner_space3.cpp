@@ -291,7 +291,7 @@ int main(int argc, char **argv)
             // Reduzir resolucao
             Mat im;
             image_ptr->image.copyTo(im);
-            resize(im, im, Size(im.cols/4, im.rows/4));
+            resize(im, im, Size(480, 270));
             // Salvar imagem em baixa resolucao e odometria local
             imagens_baixa_resolucao.push_back(im);
             tilts_imagens_pan_atual.push_back(tilt);
@@ -348,7 +348,10 @@ int main(int argc, char **argv)
                 float t = raw2deg(tilts_imagens_pan_atual[i], "tilt");
                 Matrix3f R = pc->euler2matrix(0, DEG2RAD(t), 0);
                 Matrix4f T = Matrix4f::Identity();
-                T.block<3,3>(0, 0) = R;
+		Isometry3f iso_tilt = Isometry3f::Identity();
+		iso_tilt.rotate(R);
+		T = iso_tilt.matrix();
+                //T.block<3,3>(0, 0) = R;
                 transformPointCloud<PointT>(*parcial_color, *parcial_color, T);
                 pc->colorCloudWithCalibratedImage(parcial_color, imagens_baixa_resolucao[i], 4);
                 transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
