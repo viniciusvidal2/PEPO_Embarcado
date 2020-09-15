@@ -1,6 +1,6 @@
 <launch>
 
-<arg name="tilt_moving_speed" default="10"/>
+<arg name="tilt_moving_speed" default="5"/>
 <arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
 <arg name="inicio_pan" default="10"/>
@@ -36,9 +36,13 @@
 <node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
 
+<!--Lancar no do rosbridge para comunicacao com o app mobile-->
+<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+</include>
+
 <!--Lancar RViz com configuracao salva-->
 <group if="$(arg visualizar)">
-	<node name="rviz_B9" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">	
+        <node name="rviz_pepo" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">
 	</node>
 </group>
 

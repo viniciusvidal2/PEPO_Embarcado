@@ -6,6 +6,7 @@
 
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
+#include <image_transport/image_transport.h>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
@@ -28,7 +29,6 @@ using namespace std;
 
 typedef PointXYZRGB PointT;
 
-
 cv_bridge::CvImagePtr imptr;
 PointCloud<PointXYZ>::Ptr parcial;
 int contador_nuvem = 0;
@@ -37,7 +37,7 @@ Mutex m;
 bool aquisitar_imagem = true, imagem_ok = false;
 
 // Publisher para a nuvem e imagem
-ros::Publisher im_pub;
+image_transport::Publisher im_pub;
 ros::Publisher cl_pub;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,8 +48,7 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     imagem_ok = true;
     // Reduz a resolucao e passa para jpeg
     Mat im;
-    imptr->image.copyTo(im);
-    resize(im, im, Size(im.cols/4, im.rows/4));
+    resize(imptr->image, im, Size(im.cols/4, im.rows/4));
     cv_bridge::CvImage out_msg;
     out_msg.header   = msg->header;
     out_msg.encoding = sensor_msgs::image_encodings::BGR8;
@@ -112,13 +111,14 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "encaminha_dados_desktop");
     ros::NodeHandle nh;
+    image_transport::ImageTransport it(nh);
 
     // Inicia nuvem parcial acumulada a cada passagem do laser
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     parcial->header.frame_id  = "pepo";
 
     // Publicadores
-    im_pub = nh.advertise<sensor_msgs::Image      >("/image_user", 10);
+    im_pub = it.advertise("/image_user", 10);
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_user", 10);
 
     // Inicia classe de processo de nuvens
