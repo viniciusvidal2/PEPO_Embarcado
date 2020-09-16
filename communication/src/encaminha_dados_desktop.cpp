@@ -6,6 +6,7 @@
 
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -48,13 +49,13 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     imagem_ok = true;
     // Reduz a resolucao e passa para jpeg
     Mat im;
-    resize(imptr->image, im, Size(im.cols/4, im.rows/4));
-    cv_bridge::CvImage out_msg;
-    out_msg.header   = msg->header;
-    out_msg.encoding = sensor_msgs::image_encodings::BGR8;
-    out_msg.image    = im;
+    resize(imptr->image, im, Size(imptr->image.cols/4, imptr->image.rows/4));
+    cv_bridge::CvImage msg_out;
+    msg_out.header   = msg->header;
+    msg_out.encoding = sensor_msgs::image_encodings::BGR8;
+    msg_out.image    = im;
 
-    im_pub.publish(out_msg.toImageMsg());
+    im_pub.publish(msg_out.toImageMsg());
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
@@ -87,8 +88,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             aquisitar_imagem = false;
             Mat temp_im;
             imptr->image.copyTo(temp_im);
-            //resize(temp_im, temp_im, Size(temp_im.cols/4, temp_im.rows/4));
-            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 1);
+            resize(temp_im, temp_im, Size(480, 270));
+            pc->colorCloudWithCalibratedImage(cloud_color, temp_im, 4);
             aquisitar_imagem = true;
             // Zerando contador
             contador_nuvem = 0;
@@ -128,10 +129,8 @@ int main(int argc, char **argv)
     ros::Subscriber im_sub = nh.subscribe("/image_temp", 10, imagemCallback);
     ros::Subscriber cl_sub = nh.subscribe("/cloud_temp", 10, cloudCallback);
 
-    ros::Rate r(2);
     while(ros::ok()){
         ros::spinOnce();
-        r.sleep();
     }
 
     return 0;

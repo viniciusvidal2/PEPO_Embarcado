@@ -23,3 +23,9 @@ sleep 3s
 
 # Compilar pacote de comunicacao
 catkin_make --pkg pepo_space
+
+# Dormir um pouco para esperar iniciar
+sleep 3s
+
+# Pacote do rosbridge e rosauth para ligar no mobile
+catkin_make --pkg rosbridge_server rosbridge_msgs rosbridge_library rosbridge_suite rosapi rosauth

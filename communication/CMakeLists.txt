@@ -3,7 +3,7 @@ project(communication)
 
 add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry )
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry tf actionlib_msgs message_filters pluginlib rosconsole roslib compressed_image_transport)
 find_package(OpenCV REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(OpenMP REQUIRED)

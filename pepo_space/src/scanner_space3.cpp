@@ -122,20 +122,28 @@ void saveTimeFiles(){
 
     // Escreve uma linha para cada valor
     if(t_ea.is_open()){
-        for(auto t:tempos_entre_aquisicoes)
+        for(auto t:tempos_entre_aquisicoes){
             t_ea << t;
+            t_ea << "\n";
+        }
     }
     if(t_cor.is_open()){
-        for(auto t:tempos_colorir)
+        for(auto t:tempos_colorir){
             t_cor << t;
+            t_cor << "\n";
+        }
     }
     if(t_salvar.is_open()){
-        for(auto t:tempos_salvar)
+        for(auto t:tempos_salvar){
             t_salvar << t;
+            t_salvar << "\n";
+        }
     }
     if(t_f.is_open()){
-        for(auto t:tempos_filtrar)
+        for(auto t:tempos_filtrar){
             t_f << t;
+            t_f << "\n";
+        }
     }
 
     // Fecha arquivos
