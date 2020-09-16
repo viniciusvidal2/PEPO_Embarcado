@@ -54,6 +54,8 @@ typedef sync_policies::ApproximateTime<sensor_msgs::PointCloud2, nav_msgs::Odome
 
 /// Variaveis globais
 ///
+// Pasta onde vao ser salvos os arquivos
+string pasta;
 // Vetores para posicao angular dos servos
 vector<int>   pans_raw, tilts_raw; // [RAW]
 vector<float> pans_deg, tilts_deg; // [DEG]
@@ -93,8 +95,9 @@ vector<int> tilts_imagens_pan_atual;
 int ntilts;
 // Ponteiro de cv_bridge para a imagem
 cv_bridge::CvImagePtr image_ptr;
-// Controle de tempo do subscriber do laser
-ros::Time tempo_laser;
+
+// Tempos para artigo
+vector<float> tempos_entre_aquisicoes, tempos_colorir, tempos_salvar, tempos_filtrar;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
@@ -108,6 +111,35 @@ float raw2deg(int raw, string motor){
         return (float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
     else
         return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
+}
+///////////////////////////////////////////////////////////////////////////////////////////
+void saveTimeFiles(){
+    // Abre os arquivos todos
+    ofstream t_ea(pasta+"tempos_entre_aquisicoes.txt");
+    ofstream t_cor(pasta+"tempos_colorir.txt");
+    ofstream t_salvar(pasta+"tempos_salvarimagem.txt");
+    ofstream t_f(pasta+"tempos_filtrarorigens.txt");
+
+    // Escreve uma linha para cada valor
+    if(t_ea.is_open()){
+        for(auto t:tempos_entre_aquisicoes)
+            t_ea << t;
+    }
+    if(t_cor.is_open()){
+        for(auto t:tempos_colorir)
+            t_cor << t;
+    }
+    if(t_salvar.is_open()){
+        for(auto t:tempos_salvar)
+            t_salvar << t;
+    }
+    if(t_f.is_open()){
+        for(auto t:tempos_filtrar)
+            t_f << t;
+    }
+
+    // Fecha arquivos
+    t_ea.close(); t_cor.close(); t_salvar.close(); t_f.close();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -124,8 +156,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 /// Callback do laser e servos
 ///
 void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr &msg_servos){
-//    cout << "Tempo entre uma mensagem e outra: " << ros::Time::now() - tempo_laser << "   Bytes na mensagem: " << msg_cloud->data.size()*msg_cloud->point_step << endl;
-//    tempo_laser = ros::Time::now();
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
     // Se nao estamos processando a nuvem e publicando, nem mudando de vista em pan, captar
@@ -144,8 +174,6 @@ void laserServosCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, cons
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
-//    cout << "Tempo para processar essa ultima nuvem com odometria:  " << ros::Time::now() - tempo_laser << endl;
-//    tempo_laser = ros::Time::now();
 }
 
 /// Main
@@ -186,7 +214,7 @@ int main(int argc, char **argv)
     // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
     home = getenv("HOME");
-    string pasta = string(home)+"/Desktop/"+nome_param.c_str()+"/";
+    pasta = string(home)+"/Desktop/"+nome_param.c_str()+"/";
     system(("rm -r "+pasta).c_str());
     mkdir(pasta.c_str(), 0777);
 
@@ -199,7 +227,6 @@ int main(int argc, char **argv)
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
-    //if(abs(final_scanner_deg_pan - pans_camera_deg[pans_camera_deg.size() - 1]) >= 20) pans_camera_deg.push_back(final_scanner_deg_pan);
     // Enchendo vetores de waypoints de imagem em deg e raw globais
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
@@ -268,6 +295,8 @@ int main(int argc, char **argv)
     cmd_led.request.led = 3;
     comando_leds.call(cmd_led);
 
+    ros::Time tempo_nuvem = ros::Time::now();
+
     while(ros::ok()){
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
@@ -296,6 +325,7 @@ int main(int argc, char **argv)
             imagens_baixa_resolucao.push_back(im);
             tilts_imagens_pan_atual.push_back(tilt);
             // Salvar a imagem na pasta certa
+            ros::Time tempo_s = ros::Time::now();
             string nome_imagem_atual;
             if(indice_posicao + 1 < 10){
                 nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
@@ -307,6 +337,7 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
                 pc->saveImage(image_ptr->image, nome_imagem_atual);
             }
+            tempos_salvar.push_back((ros::Time::now() - tempo_s).toSec());
             // Enviar pose da camera atual para o fog otimizar
             nav_msgs::Odometry odom_out;
             odom_out.pose.pose.position.x = pan;
@@ -326,15 +357,12 @@ int main(int argc, char **argv)
         if(processar_nuvem_e_enviar){
             ROS_INFO("Filtrando nuvem parcial ...");
             // Excluindo pontos de leituras vazias
+            ros::Time tempo_f = ros::Time::now();
             pc->cleanMisreadPoints(parcial);
-            // Filtrar nuvem por voxel
-            //VoxelGrid<PointXYZ> voxel;
-            //float ls = 0.01;
-            //voxel.setLeafSize(ls, ls, ls);
-            //voxel.setInputCloud(parcial);
-            //voxel.filter(*parcial);
+            tempos_filtrar.push_back((ros::Time::now() - tempo_f).toSec());
             // Colorir nuvem com todas as imagens
             ROS_INFO("Colorindo nuvem parcial ...");
+            ros::Time tempo_c = ros::Time::now();
             PointCloud<PointT>::Ptr parcial_color (new PointCloud<PointT>);
             parcial_color->resize(parcial->size());
 #pragma omp parallel for
@@ -356,6 +384,7 @@ int main(int argc, char **argv)
                 pc->colorCloudWithCalibratedImage(parcial_color, imagens_baixa_resolucao[i], 4);
                 transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
             }
+            tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");
             sensor_msgs::PointCloud2 msg_out;
@@ -380,6 +409,8 @@ int main(int argc, char **argv)
 		    imagens_baixa_resolucao.clear();
 		    tilts_imagens_pan_atual.clear();
 	    }
+            tempos_entre_aquisicoes.push_back((ros::Time::now() - tempo_nuvem).toSec());
+            tempo_nuvem = ros::Time::now();
             // Enviar para a proxima posicao
             if(indice_posicao + 1 < pans_raw.size()){
                 indice_posicao++; // Proximo ponto de observacao
@@ -395,6 +426,9 @@ int main(int argc, char **argv)
                 cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
                 cmd.request.tilt_pos = raw_hor_tilt;
                 comando_motor.call(cmd);
+
+                saveTimeFiles();
+
             }
             // Chaveando flag de processamento
             processar_nuvem_e_enviar = false;
