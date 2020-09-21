@@ -97,7 +97,8 @@ int ntilts;
 cv_bridge::CvImagePtr image_ptr;
 
 // Tempos para artigo
-vector<float> tempos_entre_aquisicoes, tempos_colorir, tempos_salvar, tempos_filtrar;
+vector<float > tempos_entre_aquisicoes, tempos_colorir, tempos_salvar, tempos_filtrar;
+vector<size_t> pontos_nuvem_inicial, pontos_filtro_colorir;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
@@ -148,6 +149,29 @@ void saveTimeFiles(){
 
     // Fecha arquivos
     t_ea.close(); t_cor.close(); t_salvar.close(); t_f.close();
+}
+///////////////////////////////////////////////////////////////////////////////////////////
+void savePointFiles(){
+    // Abre os arquivos todos
+    ofstream p_ni(pasta+"pontos_nuvem_inicial.txt");
+    ofstream p_fc(pasta+"pontos_filtra_colore.txt");
+
+    // Escreve uma linha para cada valor
+    if(p_ni.is_open()){
+        for(auto p:pontos_nuvem_inicial){
+            p_ni << p;
+            p_ni << "\n";
+        }
+    }
+    if(p_fc.is_open()){
+        for(auto p:pontos_filtro_colorir){
+            p_fc << p;
+            p_fc << "\n";
+        }
+    }
+
+    // Fecha arquivos
+    p_ni.close(); p_fc.close();
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -366,6 +390,7 @@ int main(int argc, char **argv)
             ROS_INFO("Filtrando nuvem parcial ...");
             // Excluindo pontos de leituras vazias
             ros::Time tempo_f = ros::Time::now();
+            pontos_nuvem_inicial.push_back(parcial->size());
             pc->cleanMisreadPoints(parcial);
             tempos_filtrar.push_back((ros::Time::now() - tempo_f).toSec());
             // Colorir nuvem com todas as imagens
@@ -393,6 +418,7 @@ int main(int argc, char **argv)
                 transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
             }
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
+            pontos_filtro_colorir.push_back(parcial_color->size());
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");
             sensor_msgs::PointCloud2 msg_out;
@@ -436,6 +462,7 @@ int main(int argc, char **argv)
                 comando_motor.call(cmd);
 
                 saveTimeFiles();
+                savePointFiles();
 
             }
             // Chaveando flag de processamento
