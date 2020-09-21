@@ -198,7 +198,9 @@ void ProcessCloud::cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud){
     PointIndices::Ptr indices (new PointIndices);
     // Varrer a nuvem atras de pontos na origem
     for(size_t i=0; i<cloud->size(); i++){
-        if((*cloud)[i].x == 0 && (*cloud)[i].y == 0 && (*cloud)[i].z == 0)
+        // Tambem remover pontos muito proximos, que nao fazem sentido
+        float d = sqrt(pow(cloud->points[i].x, 2) + pow(cloud->points[i].y, 2) + pow(cloud->points[i].z, 2));
+        if(((*cloud)[i].x == 0 && (*cloud)[i].y == 0 && (*cloud)[i].z == 0) || d <= 1 )
             indices->indices.push_back(i);
     }
     // Extrair fora esses pontos
