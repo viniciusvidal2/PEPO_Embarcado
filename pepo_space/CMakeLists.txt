@@ -21,12 +21,7 @@ include_directories(${OpenMP_INCLUDE_DIRS})
 
 catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control tf2_ros pcl_conversions message_filters)
 
-#add_executable(scanner_space src/scanner_space.cpp ../libraries/src/processcloud.cpp)
-#target_compile_options(scanner_space PRIVATE ${OpenMP_FLAGS})
-#add_dependencies(scanner_space ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(scanner_space ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
-
-add_executable(scanner_space src/scanner_space3.cpp ../libraries/src/processcloud.cpp)
+add_executable(scanner_space src/scanner_space3.cpp ../libraries/src/processcloud.cpp ../libraries/src/processimages.cpp)
 target_compile_options(scanner_space PRIVATE ${OpenMP_FLAGS})
 add_dependencies(scanner_space ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scanner_space ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})

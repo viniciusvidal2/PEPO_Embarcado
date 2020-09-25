@@ -6,30 +6,10 @@
 #include <string>
 #include <math.h>
 
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/Image.h>
-#include <nav_msgs/Odometry.h>
-
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/extract_indices.h>
 #include <pcl/filters/passthrough.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/kdtree/kdtree_flann.h>
-
-#include <cv_bridge/cv_bridge.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
-#include <Eigen/Geometry>
-#include <Eigen/Dense>
-#include <Eigen/Core>
 
 #include "../../libraries/include/processcloud.h"
+#include "../../libraries/include/processimages.h"
 #include "pepo_obj/comandoObj.h"
 
 /// Namespaces
@@ -50,6 +30,7 @@ bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
 int contador_nuvem = 0, N = 400; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
+ProcessImages *pi;
 // Nuvem de pontos parciais
 PointCloud<PointXYZ>::Ptr parcial;
 // Testando sincronizar subscribers por mutex
@@ -124,13 +105,13 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
             if(cont_aquisicao < 10){
-              pc->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
+              pi->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
               pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
             } else if(cont_aquisicao < 100) {
-              pc->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
+              pi->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
               pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
             } else {
-              pc->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
+              pi->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
               pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
             //////////////////////
@@ -188,6 +169,7 @@ int main(int argc, char **argv)
 
   // Inicia classe de processo de nuvens
   pc = new ProcessCloud(pasta);
+  pi = new ProcessImages(pasta);
 
   // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);

@@ -3,8 +3,6 @@
 
 #include "ros/ros.h"
 
-#include <math.h>
-
 #include <Eigen/Geometry>
 #include <Eigen/Dense>
 #include <Eigen/Core>
@@ -80,15 +78,13 @@ public:
   void transformCloudAndCamServoAngles(PointCloud<PointT>::Ptr cloud, float pan, float tilt, Vector3f &C, Quaternion<float> &q);
   void colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale);
 
-  std::string escreve_linha_imagem(float foco, std::string nome, Vector3f C, Quaternion<float> q);
-  void compileFinalNVM(vector<std::string> linhas);
   void saveCloud(PointCloud<PointT>::Ptr nuvem, string nome);
   void saveCloud(PointCloud<PointXYZ>::Ptr nuvem, string nome);
-  void saveImage(cv::Mat img, std::string nome);
   string getFolderName();
   void setFolderName(string name);
   Matrix3f euler2matrix(float r, float p, float y);
   void cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud);
+  Vector2f getFocuses(int scale);
 
 private:
 

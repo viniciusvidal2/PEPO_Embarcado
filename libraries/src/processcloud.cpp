@@ -88,50 +88,12 @@ void ProcessCloud::saveCloud(PointCloud<PointXYZ>::Ptr nuvem, std::string nome){
     savePLYFileBinary<PointXYZ>(nome_nuvem, *nuvem);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
-void ProcessCloud::saveImage(cv::Mat img, string nome){
-    std::string final = pasta + nome + ".png";
-    //vector<int> params;
-    //params.push_back(CV_IMWRITE_PNG_COMPRESSION);
-    //params.push_back(9);
-    cv::imwrite(final, img);//, params);
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
 Matrix3f ProcessCloud::euler2matrix(float r, float p, float y){
     // Ja recebe os angulos aqui em radianos
     Matrix3f matrix;
     matrix = AngleAxisf(y, Vector3f::UnitY()) * AngleAxisf(p, Vector3f::UnitX());
 
     return matrix;
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
-std::string ProcessCloud::escreve_linha_imagem(float foco, std::string nome, Vector3f C, Quaternion<float> q){
-    std::string linha = pasta+nome+".png";
-    // Adicionar foco
-    linha = linha + " " + std::to_string(foco);
-    // Adicionar quaternion
-    linha = linha + " " + std::to_string(q.w()) + " " + std::to_string(q.x()) + " " + std::to_string(q.y()) + " " + std::to_string(q.z());
-    // Adicionar centro da camera
-    linha = linha + " " + std::to_string(C(0)) + " " + std::to_string(C(1)) + " " + std::to_string(C(2));
-    // Adicionar distorcao radial (crendo 0) e 0 final
-    linha = linha + " 0 0\n"; // IMPORTANTE pular linha aqui, o MeshRecon precisa disso no MART
-    // Muda as virgulas por pontos no arquivo
-    std::replace(linha.begin(), linha.end(), ',', '.');
-    return linha;
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
-void ProcessCloud::compileFinalNVM(vector<string> linhas){
-    // Anota num arquivo a partir do nome vindo
-    ofstream nvm(pasta+"cameras.nvm");
-    if(nvm.is_open()){
-
-        nvm << "NVM_V3\n\n";
-        nvm << std::to_string(linhas.size())+"\n"; // Quantas imagens, sempre uma aqui
-        for(int i=0; i < linhas.size(); i++)
-            nvm << linhas[i]; // Imagem com detalhes de camera
-
-    } // fim do if is open
-    nvm << "\n";
-    nvm.close(); // Fechar para nao ter erro
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessCloud::transformCloudAndCamServoAngles(PointCloud<PointT>::Ptr cloud, float pan, float tilt, Vector3f &C, Quaternion<float> &q){
@@ -210,3 +172,13 @@ void ProcessCloud::cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud){
     extract.filter(*cloud);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
+Vector2f ProcessCloud::getFocuses(int scale){
+    Vector2f f;
+    if(scale == 1){
+        f(0) = K1(0, 0); f(1) = K1(1, 1);
+    } else {
+        f(0) = K4(0, 0); f(1) = K4(1, 1);
+    }
+
+    return f;
+}

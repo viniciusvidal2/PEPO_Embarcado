@@ -5,28 +5,6 @@
 #include <string>
 #include <math.h>
 
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/Image.h>
-#include <nav_msgs/Odometry.h>
-
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/kdtree/kdtree_flann.h>
-
-#include <cv_bridge/cv_bridge.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
-#include <Eigen/Geometry>
-#include <Eigen/Dense>
-#include <Eigen/Core>
-
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
 #include <dynamixel_workbench_msgs/JointCommand.h>
@@ -37,6 +15,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include "../../libraries/include/processcloud.h"
+#include "../../libraries/include/processimages.h"
 #include "led_control/LED.h"
 
 /// Namespaces
@@ -83,6 +62,8 @@ ros::Publisher an_pub;
 ros::Publisher im_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
+// Classe de processamento de imagens
+ProcessImages *pi;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
 // Valor do servo naquele instante em variavel global para ser acessado em varios callbacks
@@ -91,6 +72,8 @@ int pan, tilt;
 vector<Mat> imagens_baixa_resolucao;
 // Vetor de odometrias para cada imagem - somente tilt ja devia ser suficiente
 vector<int> tilts_imagens_pan_atual;
+// Vetor com todos os quaternions para fazer a panoramica
+vector<Quaternion<float>> quaternions_panoramica;
 // Quantos tilts vamos capturar
 int ntilts;
 // Ponteiro de cv_bridge para a imagem
@@ -302,8 +285,9 @@ int main(int argc, char **argv)
     ROS_INFO("Servos comunicando e indo para a posicao inicial ...");
     sleep(6); // Esperar os servos pararem de balancar e driver de imagem ligar
 
-    // Inicia classe de processo de nuvens
+    // Inicia classe de processo de nuvens e imagens
     pc = new ProcessCloud(pasta);
+    pi = new ProcessImages(pasta);
 
     // Publicadores
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
@@ -356,19 +340,20 @@ int main(int argc, char **argv)
             // Salvar imagem em baixa resolucao e odometria local
             imagens_baixa_resolucao.push_back(im);
             tilts_imagens_pan_atual.push_back(tilt);
+            // Salvar quaternion para criacao da imagem 360 final
+            Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
+            Quaternion<float> q360(R360.inverse());
+            quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
             ros::Time tempo_s = ros::Time::now();
             string nome_imagem_atual;
-            if(indice_posicao + 1 < 10){
+            if(indice_posicao + 1 < 10)
                 nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            } else if(indice_posicao+1 < 100) {
+            else if(indice_posicao+1 < 100)
                 nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            } else {
+            else
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
-                pc->saveImage(image_ptr->image, nome_imagem_atual);
-            }
+            pi->saveImage(image_ptr->image, nome_imagem_atual);
             tempos_salvar.push_back((ros::Time::now() - tempo_s).toSec());
             // Enviar pose da camera atual para o fog otimizar
             nav_msgs::Odometry odom_out;
@@ -404,21 +389,21 @@ int main(int argc, char **argv)
                 parcial_color->points[i].r = 200                 ; parcial_color->points[i].g = 200                 ; parcial_color->points[i].b = 200                 ;
             }
             parcial->clear();
-            for(int i=0; i<imagens_baixa_resolucao.size(); i++){
-                // Transformar a nuvem para o centro de cada camera (em tilt) e depois projetar
-                float t = raw2deg(tilts_imagens_pan_atual[i], "tilt");
-                Matrix3f R = pc->euler2matrix(0, DEG2RAD(t), 0);
-                Matrix4f T = Matrix4f::Identity();
-		Isometry3f iso_tilt = Isometry3f::Identity();
-		iso_tilt.rotate(R);
-		T = iso_tilt.matrix();
-                //T.block<3,3>(0, 0) = R;
-                transformPointCloud<PointT>(*parcial_color, *parcial_color, T);
-                pc->colorCloudWithCalibratedImage(parcial_color, imagens_baixa_resolucao[i], 4);
-                transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
-            }
+
+            int k = indice_posicao % ntilts;
+            // Transformar a nuvem para o centro de cada camera (em tilt) e depois projetar
+            float t = raw2deg(tilts_imagens_pan_atual[k], "tilt");
+            Matrix3f R = pc->euler2matrix(0, DEG2RAD(t), 0);
+            Matrix4f T = Matrix4f::Identity();
+            Isometry3f iso_tilt = Isometry3f::Identity();
+            iso_tilt.rotate(R);
+            T = iso_tilt.matrix();
+            transformPointCloud<PointT>(*parcial_color, *parcial_color, T);
+            pc->colorCloudWithCalibratedImage(parcial_color, imagens_baixa_resolucao[k], 4);
+            transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             pontos_filtro_colorir.push_back(parcial_color->size());
+
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");
             sensor_msgs::PointCloud2 msg_out;
@@ -439,10 +424,10 @@ int main(int argc, char **argv)
             parcial_color->clear();
             // Vamos mudar de angulo em pan, se for o caso, e ai sim zerar os vetores
             if((indice_posicao + 1) % ntilts == 0){
-		    mudando_vista_pan = true;
-		    imagens_baixa_resolucao.clear();
-		    tilts_imagens_pan_atual.clear();
-	    }
+                mudando_vista_pan = true;
+                imagens_baixa_resolucao.clear();
+                tilts_imagens_pan_atual.clear();
+            }
             tempos_entre_aquisicoes.push_back((ros::Time::now() - tempo_nuvem).toSec());
             tempo_nuvem = ros::Time::now();
             // Enviar para a proxima posicao
@@ -454,15 +439,19 @@ int main(int argc, char **argv)
                     ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
             } else { // Se for a ultima, finalizar
                 indice_posicao++;
-                ROS_INFO("Aquisitamos tudo, finalizando ...");
+                ROS_INFO("Aquisitamos tudo, enviando para posicao inicial novamente ...");
                 cmd_led.request.led = 1; // LED continuo
                 comando_leds.call(cmd_led);
                 cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
                 cmd.request.tilt_pos = raw_hor_tilt;
                 comando_motor.call(cmd);
 
+                // Criar a 360 crua
+                ROS_INFO("Processando imagem 360 ...");
+                pi->estimateRaw360(quaternions_panoramica, pc->getFocuses(1));
                 saveTimeFiles();
                 savePointFiles();
+                ROS_INFO("Processado e finalizado o Scan.");
 
             }
             // Chaveando flag de processamento

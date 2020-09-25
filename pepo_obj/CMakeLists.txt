@@ -33,7 +33,7 @@ include_directories(${OpenMP_INCLUDE_DIRS})
 
 catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs nav_msgs pcl_ros laser_geometry message_generation)
 
-add_executable(scanner_obj src/scanner_obj.cpp ../libraries/src/processcloud.cpp)
+add_executable(scanner_obj src/scanner_obj.cpp ../libraries/src/processcloud.cpp ../libraries/src/processimages.cpp)
 target_compile_options(scanner_obj PRIVATE ${OpenMP_FLAGS})
 add_dependencies(scanner_obj ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scanner_obj ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})
