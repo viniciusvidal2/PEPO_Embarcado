@@ -342,7 +342,7 @@ int main(int argc, char **argv)
             tilts_imagens_pan_atual.push_back(tilt);
             // Salvar quaternion para criacao da imagem 360 final
             Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
-            Quaternion<float> q360(R360.inverse());
+            Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
             ros::Time tempo_s = ros::Time::now();

@@ -64,10 +64,10 @@ void ProcessImages::estimateRaw360(vector<Quaternion<float>> qs, Vector2f fs){
 
     ////////// Ler cada imagem e processar no seu lugar da esfera
     ///
-    Mat im360;
+    Mat im360 = Mat::zeros(Size(raios_360, raios_180), CV_8UC3); // Imagem 360 ao final de todas as fotos passadas
+    #pragma omp parallel for
     for (int i = 0; i < qs.size(); i++)
     {
-        cout << "Processando foto " << i+1 << endl;
         // Ler a imagem a ser usada
         string nome_imagem;
         if((i + 1) < 10)
@@ -82,8 +82,7 @@ void ProcessImages::estimateRaw360(vector<Quaternion<float>> qs, Vector2f fs){
 
         // Calcular a vista da camera pelo Rt inverso - rotacionar para o nosso mundo, com Z para cima
         Matrix4f T = Matrix4f::Identity();
-        Matrix3f Rpt = qs[i].matrix();
-        T.block<3,3>(0, 0) = qs[i].matrix();//Rpt;
+        T.block<3,3>(0, 0) = qs[i].matrix();
         // Definir o foco em dimensoes fisicas do frustrum
         float F = R;
         double minX, minY, maxX, maxY;
@@ -114,15 +113,12 @@ void ProcessImages::estimateRaw360(vector<Quaternion<float>> qs, Vector2f fs){
         p << 0, 0, F, 1;
         pCenter = T * p;
         // Fazer tudo aqui nessa nova funcao, ja devolver a imagem esferica inclusive nesse ponto
-        im360 = Mat::zeros(Size(raios_360, raios_180), CV_8UC3); // Imagem 360 ao final de todas as fotos passadas
-
         this->doTheThing(step_deg, p2.block<3, 1>(0, 0), p4.block<3, 1>(0, 0), p5.block<3, 1>(0, 0), image, im360);
     }
 
     ////////// Salvar imagem final na pasta
     ///
     imwrite(pasta + "panoramica.png", im360);
-    cout << "\nPanoramica finalizada.\n" << endl;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessImages::doTheThing(float sd, Vector3f p2, Vector3f p4, Vector3f p5, Mat im, Mat &im360) {
