@@ -332,9 +332,9 @@ int main(int argc, char **argv)
             // Chavear a flag
             aquisitar_imagem = false;
             // Reduzir resolucao
-            Mat imagem_baixa_resolucao;
-            image_ptr->image.copyTo(imagem_baixa_resolucao);
-            resize(imagem_baixa_resolucao, imagem_baixa_resolucao, Size(480, 270));
+//            Mat imagem_baixa_resolucao;
+//            image_ptr->image.copyTo(imagem_baixa_resolucao);
+//            resize(imagem_baixa_resolucao, imagem_baixa_resolucao, Size(480, 270));
             // Salvar quaternion para criacao da imagem 360 final
             Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
@@ -387,7 +387,7 @@ int main(int argc, char **argv)
             iso_tilt.rotate(R);
             T = iso_tilt.matrix();
             transformPointCloud<PointT>(*parcial_color, *parcial_color, T);
-            pc->colorCloudWithCalibratedImage(parcial_color, imagem_baixa_resolucao, 4);
+            pc->colorCloudWithCalibratedImage(parcial_color, image_ptr->image, 1);
             transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             pontos_filtro_colorir.push_back(parcial_color->size());
