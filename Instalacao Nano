@@ -48,4 +48,9 @@ adicionar tudo no startup applications (led, usb e camera): python3 /home/pepo/p
 
 12- Adiconar o hostname do computador remoto e o ip no arquivo /etc/hosts como sudo, e no remoto adicionar o nosso ip com nome grin apos no mesmo arquivo, para conectarmos usando aplicacao no Qt.
 
+13- Para instalar dependencias da imu por i2c:
+sudo apt-get install python3-pip
+sudo pip3 install py-imu-mpu6050
+sudo pip3 install adafruit-circuitpython-mpu6050
+
 
