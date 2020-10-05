@@ -93,7 +93,7 @@ def talker():
         mroll  = 0.9*mroll  + 0.1*roll
         mpitch = 0.9*mpitch + 0.1*pitch
 
-        headdata = Float32MultiArray(data=[180.0/np.pi*mroll,180.0/np.pi*mpitch])
+        headdata = Float32MultiArray(data=[mroll, mpitch])
         pub_imu.publish(headdata)
         rate.sleep()
 

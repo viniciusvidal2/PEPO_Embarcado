@@ -56,7 +56,7 @@ int indice_posicao = 0;
 // Raio de aceitacao de posicao angular
 int dentro = 5; // [RAW]
 // Flags de controle
-bool aquisitar_imagem = false, mudando_vista = true, iniciar_laser = false;
+bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria
 ros::Publisher cl_pub;
 ros::Publisher od_pub;
@@ -164,7 +164,7 @@ void savePointFiles(){
 ///
 void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
-    if(aquisitar_imagem)
+    if(aquisitar_imagem_imu)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
     // Publicando a imagem para ver o no de comunicacao com o desktop
     im_pub.publish(*msg);
@@ -181,7 +181,9 @@ void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
 ///
 void imuCallback(const std_msgs::Float32MultiArrayConstPtr &msg_imu){
     // As mensagens trazem angulos em RAD
-    roll = msg_imu->data.at(0); pitch = msg_imu->data.at(1);
+    if(aquisitar_imagem_imu){
+        roll = msg_imu->data.at(0); pitch = msg_imu->data.at(1);
+    }
 }
 
 /// Callback do laser
@@ -194,12 +196,6 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
         fromROSMsg(*msg_cloud, *cloud);
         // Transformando para o frame da camera
         pc->transformToCameraFrame(cloud);
-        // Aplicar transformada de acordo com o angulo - somente tilt
-        float t = raw2deg(tilt, "tilt");
-        Matrix3f R = pc->euler2matrix(0, DEG2RAD(-t), 0);
-        Matrix4f T = Matrix4f::Identity();
-        T.block<3,3>(0, 0) = R;
-        transformPointCloud(*cloud, *cloud, T);
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
@@ -224,7 +220,7 @@ int main(int argc, char **argv)
     n_.param<int   >("step" , step      , 30                  );
     n_.param<float >("inicio_pan", inicio_scanner_deg_pan, step/2      );
     n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360 - step/2);
-    n_.param<int   >("qualidade" , qualidade             , 2  );
+    n_.param<int   >("qualidade" , qualidade             , 2           );
     inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? deg_min_pan : inicio_scanner_deg_pan;
     final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? deg_max_pan : final_scanner_deg_pan;
     if((final_scanner_deg_pan - inicio_scanner_deg_pan) < step || (final_scanner_deg_pan - inicio_scanner_deg_pan) < 0) final_scanner_deg_pan = inicio_scanner_deg_pan + step;
@@ -341,19 +337,18 @@ int main(int argc, char **argv)
             if(!iniciar_laser) iniciar_laser = true;
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
             // Libera captura da imagem
-            aquisitar_imagem = true;
+            aquisitar_imagem_imu = true;
             for(int i=0; i<qualidade; i++){
                 r.sleep();
                 ros::spinOnce();
             }
             // Chavear a flag
-            aquisitar_imagem = false;
+            aquisitar_imagem_imu = false;
             // Reduzir resolucao
-//            Mat imagem_baixa_resolucao;
-//            image_ptr->image.copyTo(imagem_baixa_resolucao);
-//            resize(imagem_baixa_resolucao, imagem_baixa_resolucao, Size(480, 270));
+            Mat imagem_temp;
+            image_ptr->image.copyTo(imagem_temp);
             // Salvar quaternion para criacao da imagem 360 final
-            Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
+            Matrix3f R360 = pc->euler2matrix(roll, -pitch, -DEG2RAD(raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
@@ -365,16 +360,17 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
             else
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
-            pi->saveImage(image_ptr->image, nome_imagem_atual);
+            pi->saveImage(imagem_temp, nome_imagem_atual);
             tempos_salvar.push_back((ros::Time::now() - tempo_s).toSec());
             // Enviar pose da camera atual para o fog otimizar
             nav_msgs::Odometry odom_out;
-            odom_out.pose.pose.position.x = pan;
-            odom_out.pose.pose.position.y = tilts_imagens_pan_atual[tilts_imagens_pan_atual.size() - 1];
-            odom_out.pose.pose.position.z = indice_posicao;
+            odom_out.pose.pose.position.x = -roll;
+            odom_out.pose.pose.position.y = pitch; // AGORA O PITCH JA VEM EM RADIANOS!
+            odom_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
             odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
-            odom_out.header.stamp = ros::Time::now();
+            odom_out.pose.pose.orientation.y = float(indice_posicao);  // Posicao atual na aquisicao
+            odom_out.header.stamp    = ros::Time::now();
             odom_out.header.frame_id = "map";
             an_pub.publish(odom_out);
 
@@ -396,18 +392,13 @@ int main(int argc, char **argv)
             }
             parcial->clear();
 
-            // Transformar a nuvem para o centro de cada camera (em tilt) e depois projetar
-            float t = raw2deg(tilt, "tilt");
-            Matrix3f R = pc->euler2matrix(0, DEG2RAD(t), 0);
-            Matrix4f T = Matrix4f::Identity();
-            Isometry3f iso_tilt = Isometry3f::Identity();
-            iso_tilt.rotate(R);
-            T = iso_tilt.matrix();
-            transformPointCloud<PointT>(*parcial_color, *parcial_color, T);
             pc->colorCloudWithCalibratedImage(parcial_color, image_ptr->image, 1);
-            transformPointCloud<PointT>(*parcial_color, *parcial_color, T.inverse());
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             pontos_filtro_colorir.push_back(parcial_color->size());
+            // Transformando segundo o pitch e roll vindos da imu
+            Matrix3f rpr = pc->euler2matrix(roll, -pitch, 0);
+            Quaternion<float> qpr(rpr);
+            transformPointCloud<PointT>(*parcial_color, *parcial_color, Vector3f::Zero(), qpr);
 
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");
@@ -416,12 +407,13 @@ int main(int argc, char **argv)
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
-            odom_cloud_out.pose.pose.position.x = pan;
-            odom_cloud_out.pose.pose.position.y = tilt;
-            odom_cloud_out.pose.pose.position.z = indice_posicao;
+            odom_cloud_out.pose.pose.position.x = -roll;
+            odom_cloud_out.pose.pose.position.y = pitch;
+            odom_cloud_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
-            odom_cloud_out.header.stamp = msg_out.header.stamp;
+            odom_cloud_out.pose.pose.orientation.y = float(indice_posicao);  // Posicao atual na aquisicao
+            odom_cloud_out.header.stamp    = msg_out.header.stamp;
             odom_cloud_out.header.frame_id = msg_out.header.frame_id;
             od_pub.publish(odom_cloud_out);
             cl_pub.publish(msg_out);
