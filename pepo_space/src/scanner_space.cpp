@@ -5,6 +5,8 @@
 #include <string>
 #include <math.h>
 
+#include <std_msgs/Float32MultiArray.h>
+
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
 #include <dynamixel_workbench_msgs/JointCommand.h>
@@ -68,6 +70,8 @@ ProcessImages *pi;
 PointCloud<PointXYZ>::Ptr parcial;
 // Valor do servo naquele instante em variavel global para ser acessado em varios callbacks
 int pan, tilt;
+// Valor dos angulos que vem da IMU, em RAD
+float roll, pitch;
 // Vetor de odometrias para cada imagem - somente tilt ja devia ser suficiente
 vector<int> tilts_imagens_pan_atual;
 // Vetor com todos os quaternions para fazer a panoramica
@@ -173,6 +177,13 @@ void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
 }
 
+/// Callback servos
+///
+void imuCallback(const std_msgs::Float32MultiArrayConstPtr &msg_imu){
+    // As mensagens trazem angulos em RAD
+    roll = msg_imu->data.at(0); pitch = msg_imu->data.at(1);
+}
+
 /// Callback do laser
 ///
 void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
@@ -271,10 +282,11 @@ int main(int argc, char **argv)
     // Iniciando ponteiro de imagem em cv_bridge
     image_ptr = (cv_bridge::CvImagePtr) new cv_bridge::CvImage;
 
-    // Subscriber de imagem
+    // Subscribers
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback   );
     ros::Subscriber sub_las = nh.subscribe("/livox/lidar"                    , 10, laserCallback );
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, servosCallback);
+    ros::Subscriber sub_imu = nh.subscribe("/imu"                            , 10, imuCallback   );
 
     // Enviando scanner para o inicio
     cmd.request.unit = "raw";
@@ -282,6 +294,11 @@ int main(int argc, char **argv)
     cmd.request.tilt_pos = tilts_raw[0];
 
     ros::Rate r(20);
+    ROS_WARN("Esperando a IMU !! ...");
+    while(sub_imu.getNumPublishers() == 0){
+        ros::spinOnce();
+        r.sleep();
+    }
     ROS_WARN("Esperando a comunicacao com os servos !! ...");
     while(!comando_motor.call(cmd)){
         ros::spinOnce();
@@ -398,15 +415,15 @@ int main(int argc, char **argv)
             toROSMsg(*parcial_color, msg_out);
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
-            nav_msgs::Odometry odom_out;
-            odom_out.pose.pose.position.x = pan;
-            odom_out.pose.pose.position.y = tilt;
-            odom_out.pose.pose.position.z = indice_posicao;
-            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
-            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
-            odom_out.header.stamp = msg_out.header.stamp;
-            odom_out.header.frame_id = msg_out.header.frame_id;
-            od_pub.publish(odom_out);
+            nav_msgs::Odometry odom_cloud_out;
+            odom_cloud_out.pose.pose.position.x = pan;
+            odom_cloud_out.pose.pose.position.y = tilt;
+            odom_cloud_out.pose.pose.position.z = indice_posicao;
+            odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
+            odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
+            odom_cloud_out.header.stamp = msg_out.header.stamp;
+            odom_cloud_out.header.frame_id = msg_out.header.frame_id;
+            od_pub.publish(odom_cloud_out);
             cl_pub.publish(msg_out);
             // Zerando parcial para proxima vista em pan e vetor de imagens
             parcial_color->clear();
