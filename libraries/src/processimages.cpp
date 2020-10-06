@@ -12,37 +12,7 @@ ProcessImages::~ProcessImages(){
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessImages::saveImage(Mat img, string nome){
     string final = pasta + nome + ".png";
-    imwrite(final, img);//, params);
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
-string ProcessImages::escreve_linha_imagem_NVM(float foco, string nome, Vector3f C, Quaternion<float> q){
-    string linha = pasta+nome+".png";
-    // Adicionar foco
-    linha = linha + " " + std::to_string(foco);
-    // Adicionar quaternion
-    linha = linha + " " + std::to_string(q.w()) + " " + std::to_string(q.x()) + " " + std::to_string(q.y()) + " " + std::to_string(q.z());
-    // Adicionar centro da camera
-    linha = linha + " " + std::to_string(C(0)) + " " + std::to_string(C(1)) + " " + std::to_string(C(2));
-    // Adicionar distorcao radial (crendo 0) e 0 final
-    linha = linha + " 0 0\n"; // IMPORTANTE pular linha aqui, o MeshRecon precisa disso no MART
-    // Muda as virgulas por pontos no arquivo
-    std::replace(linha.begin(), linha.end(), ',', '.');
-    return linha;
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
-void ProcessImages::compileFinalNVM(vector<string> linhas){
-    // Anota num arquivo a partir do nome vindo
-    ofstream nvm(pasta+"cameras.nvm");
-    if(nvm.is_open()){
-
-        nvm << "NVM_V3\n\n";
-        nvm << std::to_string(linhas.size())+"\n"; // Quantas imagens, sempre uma aqui
-        for(int i=0; i < linhas.size(); i++)
-            nvm << linhas[i]; // Imagem com detalhes de camera
-
-    } // fim do if is open
-    nvm << "\n";
-    nvm.close(); // Fechar para nao ter erro
+    imwrite(final, img);
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void ProcessImages::setFolderName(string name){

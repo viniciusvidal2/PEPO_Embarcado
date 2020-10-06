@@ -60,7 +60,6 @@ bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria
 ros::Publisher cl_pub;
 ros::Publisher od_pub;
-ros::Publisher an_pub;
 ros::Publisher im_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
@@ -194,8 +193,6 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
         // Converter mensagem
         PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
         fromROSMsg(*msg_cloud, *cloud);
-        // Transformando para o frame da camera
-        pc->transformToCameraFrame(cloud);
         // Acumular nuvem parcial
         *parcial += *cloud;
     }
@@ -310,7 +307,6 @@ int main(int argc, char **argv)
     // Publicadores
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
-    an_pub = nh.advertise<nav_msgs::Odometry      >("/poses_space", 10);
     im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp" , 10);
 
     // Iniciando a nuvem parcial acumulada de cada pan
@@ -344,7 +340,6 @@ int main(int argc, char **argv)
             }
             // Chavear a flag
             aquisitar_imagem_imu = false;
-            // Reduzir resolucao
             Mat imagem_temp;
             image_ptr->image.copyTo(imagem_temp);
             // Salvar quaternion para criacao da imagem 360 final
@@ -362,18 +357,9 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
             pi->saveImage(imagem_temp, nome_imagem_atual);
             tempos_salvar.push_back((ros::Time::now() - tempo_s).toSec());
-            // Enviar pose da camera atual para o fog otimizar
-            nav_msgs::Odometry odom_out;
-            odom_out.pose.pose.position.x = -roll;
-            odom_out.pose.pose.position.y = pitch; // AGORA O PITCH JA VEM EM RADIANOS!
-            odom_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
-            odom_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
-            odom_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
-            odom_out.pose.pose.orientation.y = float(indice_posicao);  // Posicao atual na aquisicao
-            odom_out.header.stamp    = ros::Time::now();
-            odom_out.header.frame_id = "map";
-            an_pub.publish(odom_out);
 
+            // Transformando para o frame da camera
+            pc->transformToCameraFrame(parcial);
             ROS_INFO("Filtrando nuvem parcial ...");
             // Excluindo pontos de leituras vazias
             ros::Time tempo_f = ros::Time::now();
@@ -395,10 +381,9 @@ int main(int argc, char **argv)
             pc->colorCloudWithCalibratedImage(parcial_color, image_ptr->image, 1);
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             pontos_filtro_colorir.push_back(parcial_color->size());
-            // Transformando segundo o pitch e roll vindos da imu
-            Matrix3f rpr = pc->euler2matrix(roll, -pitch, 0);
-            Quaternion<float> qpr(rpr);
-            transformPointCloud<PointT>(*parcial_color, *parcial_color, Vector3f::Zero(), qpr);
+            // Transformando segundo o pitch e roll vindos da imu e pan vindo do servo
+            Vector3f off_laser{0, 0, 0.04};
+            transformPointCloud<PointT>(*parcial_color, *parcial_color, R360*off_laser, q360);
 
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");

@@ -33,8 +33,6 @@
 #include <ctime>
 #include <math.h>
 
-/// Essa classe tera todas as funçoes para trabalhar a nuvem de pontos, calcular normais, colorir,
-/// salvar nuvens e imagens e ate mesmo projetar os pontos para criar a imagem de laser virtual
 using namespace std;
 using namespace cv;
 using namespace Eigen;
@@ -45,8 +43,6 @@ public:
   ProcessImages(string _pasta);
   virtual ~ProcessImages();
 
-  string escreve_linha_imagem_NVM(float foco, std::string nome, Vector3f C, Quaternion<float> q);
-  void compileFinalNVM(vector<std::string> linhas);
   void saveImage(cv::Mat img, std::string nome);
   string getFolderName();
   void setFolderName(string name);
