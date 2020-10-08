@@ -176,7 +176,7 @@ void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
 }
 
-/// Callback servos
+/// Callback imu
 ///
 void imuCallback(const std_msgs::Float32MultiArrayConstPtr &msg_imu){
     // As mensagens trazem angulos em RAD
@@ -332,7 +332,7 @@ int main(int argc, char **argv)
             // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
             if(!iniciar_laser) iniciar_laser = true;
             ROS_INFO("Estamos captando a imagem %d ...", indice_posicao+1);
-            // Libera captura da imagem
+            // Libera captura da imagem e imu
             aquisitar_imagem_imu = true;
             for(int i=0; i<qualidade; i++){
                 r.sleep();
@@ -340,10 +340,16 @@ int main(int argc, char **argv)
             }
             // Chavear a flag
             aquisitar_imagem_imu = false;
+            // Pegar o roll para essa vista em pan
+            float current_roll;
+            if(indice_posicao % ntilts == 0){
+                sleep(2);
+                current_roll = roll;
+            }
             Mat imagem_temp;
             image_ptr->image.copyTo(imagem_temp);
             // Salvar quaternion para criacao da imagem 360 final
-            Matrix3f R360 = pc->euler2matrix(roll, -pitch, -DEG2RAD(raw2deg(pan, "pan")));
+            Matrix3f R360 = pc->euler2matrix(current_roll, -pitch, -DEG2RAD(raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
@@ -382,8 +388,8 @@ int main(int argc, char **argv)
             tempos_colorir.push_back((ros::Time::now() - tempo_c).toSec());
             pontos_filtro_colorir.push_back(parcial_color->size());
             // Transformando segundo o pitch e roll vindos da imu e pan vindo do servo
-            Vector3f off_laser{0, 0, 0.04};
-            transformPointCloud<PointT>(*parcial_color, *parcial_color, R360*off_laser, q360);
+            //Vector3f off_laser{0, 0, 0.04};
+            transformPointCloud<PointT>(*parcial_color, *parcial_color, Vector3f::Zero(), q360);
 
             // Publicar tudo para a fog - nuvem e odometria
             ROS_INFO("Publicando nuvem e odometria ...");
@@ -392,7 +398,7 @@ int main(int argc, char **argv)
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
-            odom_cloud_out.pose.pose.position.x = -roll;
+            odom_cloud_out.pose.pose.position.x = -current_roll;
             odom_cloud_out.pose.pose.position.y = pitch;
             odom_cloud_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao

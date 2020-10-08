@@ -91,7 +91,7 @@ void ProcessCloud::saveCloud(PointCloud<PointXYZ>::Ptr nuvem, std::string nome){
 Matrix3f ProcessCloud::euler2matrix(float r, float p, float y){
     // Ja recebe os angulos aqui em radianos
     Matrix3f matrix;
-    matrix = AngleAxisf(y, Vector3f::UnitY()) * AngleAxisf(p, Vector3f::UnitX()) * AngleAxisf(r, Vector3f::UnitZ());
+    matrix = AngleAxisf(r, Vector3f::UnitZ()) * AngleAxisf(y, Vector3f::UnitY()) * AngleAxisf(p, Vector3f::UnitX());
 
     return matrix;
 }
