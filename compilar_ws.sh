@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ir para a pasta do workpace
-cd /home/pepo/pepo_ws
+cd /home/cap/pepo_ws
 
 # Compilar dependencias menores
 catkin_make --pkg cv_camera dynamixel_workbench_controllers dynamixel_workbench_msgs led_control livox_ros_driver imu_i2c
