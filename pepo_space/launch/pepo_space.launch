@@ -1,12 +1,6 @@
 <launch>
 
-<arg name="tilt_moving_speed" default="5"/>
-<arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
-<arg name="inicio_pan" default="10"/>
-<arg name="fim_pan"    default="350"/>
-<arg name="step"       default="30"/>
-<arg name="qual"       default="2"/>
 
 <!--Lancar no do driver camera USB-->
 <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
@@ -15,24 +9,9 @@
     <param name="rescale_camera_info"      value="true"/>
 </node>
 
-<!--Lancar no da IMU-->
-<node name="imu_node" pkg="imu_i2c" type="imu.py" output="screen"/>
-
-<!--Lancar no do driver do laser-->
-<include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
-
-<!--Lancar os servos dynamixel-->
-<include file="$(find dynamixel_workbench_controllers)/launch/multi_port_pepo.launch">
-    <param name="tilt_moving_speed" value="$(arg tilt_moving_speed)"/>
-</include>
-
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
-    <param name="inicio_pan" value="$(arg inicio_pan)"/>
-    <param name="fim_pan"    value="$(arg fim_pan)"   />
-    <param name="step"       value="$(arg step)"      />
-    <param name="qualidade"  value="$(arg qual)"      />
 </node>
 
 <!--Lancar no de comunicacao para enviar ao desktop-->
@@ -42,11 +21,5 @@
 <!--Lancar no do rosbridge para comunicacao com o app mobile-->
 <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
 </include>
-
-<!--Lancar RViz com configuracao salva-->
-<group if="$(arg visualizar)">
-        <node name="rviz_pepo" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">
-	</node>
-</group>
 
 </launch>
