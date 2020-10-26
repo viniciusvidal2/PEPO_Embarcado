@@ -5,7 +5,6 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry tf actionlib_msgs message_filters pluginlib rosconsole roslib compressed_image_transport)
 find_package(OpenCV REQUIRED)
-find_package(Protobuf REQUIRED)
 find_package(OpenMP REQUIRED)
 if(OPENMP_FOUND)
   message(STATUS "OPENMP FOUND")
@@ -19,7 +18,7 @@ include_directories(${PCL_INCLUDE_DIRS})
 include_directories(${OpenMP_INCLUDE_DIRS})
 
 catkin_package(
-  DEPENDS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry
+  DEPENDS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry compressed_image_transport
 )
 
 add_executable(encaminha_dados_desktop src/encaminha_dados_desktop.cpp ../libraries/src/processcloud.cpp)

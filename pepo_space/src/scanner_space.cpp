@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     pi = new ProcessImages(pasta);
 
     // Subscribers
-    ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback   );
+    ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback);
 
     // Publicadores
     im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp" , 10);
@@ -86,17 +86,22 @@ int main(int argc, char **argv)
     msg_pub.publish(msg);
 
     ros::Rate r(20), r2(1), r3(0.2);
-    int maximo = 20, contador = 0;
+    int maximo = 20, contador;
     while(ros::ok()){
 
+	contador = 0;
         while(ros::ok()){
             contador++;
             r2.sleep();
             ros::spinOnce();
-            if(contador == 30) break;
+            if(contador == 10) break;
         }
         aquisitar_imagem = true;
-        r3.sleep();
+        for(int i=0; i<5; i++){
+            r2.sleep();
+            ros::spinOnce();
+        }
+        aquisitar_imagem = false;
         Mat imagem_temp;
         image_ptr->image.copyTo(imagem_temp);
         // Salvar a imagem na pasta certa
@@ -108,9 +113,11 @@ int main(int argc, char **argv)
         else
             nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
         pi->saveImage(imagem_temp, nome_imagem_atual);
-        aquisitar_imagem = false;
         msg.data = "Aquisicao da imagem " + nome_imagem_atual + " com sucesso !";
         msg_pub.publish(msg);
+        msg.data = "Progresso atual: " + std::to_string(float(indice_posicao+1)/float(maximo)*100) + "% .";
+        msg_pub.publish(msg);
+        indice_posicao++;
 
         // Roda o loop de ROS
         ros::spinOnce();

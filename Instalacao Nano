@@ -53,4 +53,10 @@ sudo apt-get install python3-pip
 sudo pip3 install py-imu-mpu6050
 sudo pip3 install adafruit-circuitpython-mpu6050
 
+14- Para instalar o rosbridge, suas dependencias:
+sudo pip install tornado pymongo
+sudo pip3 install tornado pymongo
 
+15- O driver de ubuntu da camera v4l-utils:
+sudo apt-get update -y
+sudo apt-get install -y v4l-utils

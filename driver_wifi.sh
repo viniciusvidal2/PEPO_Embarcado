@@ -4,7 +4,7 @@
 sleep 10s
 
 # Mudar a pasta para a que contem o driver compilado
-cd /home/pepo/rtl8188fu
+cd /home/cap/rtl8188fu
 
 # Chamar o modprobe
 echo 12 | sudo -S modprobe cfg80211
