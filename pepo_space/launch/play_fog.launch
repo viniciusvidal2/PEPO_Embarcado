@@ -1,0 +1,4 @@
+<launch>
+    <arg name="bag" default="record_fog"/>
+    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args=" /home/$(env USER)/Desktop/$(arg bag).bag --clock /cloud_space:=/cloud_space1 /angle_space:=/angle_space1 /image_user:=/image_user1"/>
+</launch>
