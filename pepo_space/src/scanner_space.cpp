@@ -202,7 +202,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
 ///
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "scanner_space3");
+    ros::init(argc, argv, "scanner_space");
     ros::NodeHandle nh;
     ros::NodeHandle n_("~");
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
@@ -343,8 +343,8 @@ int main(int argc, char **argv)
             // Pegar o roll para essa vista em pan
             float current_roll;
             if(indice_posicao % ntilts == 0){
-                sleep(2);
-                current_roll = roll;
+//                sleep(2);
+                current_roll = 0;
             }
             Mat imagem_temp;
             image_ptr->image.copyTo(imagem_temp);
