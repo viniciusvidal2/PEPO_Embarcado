@@ -45,7 +45,7 @@ float raw_min_pan = 35, raw_max_pan = 4077;
 float deg_min_pan =  3, deg_max_pan =  358;
 float raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595  ;
 float deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.9;
-float raw_deg = 4096.0f/360.0f, deg_raw = 1/raw_deg;
+float raw_deg = 0.08764648, deg_raw = 1/raw_deg;
 // Servico para mover os servos
 ros::ServiceClient comando_motor;
 dynamixel_workbench_msgs::JointCommand cmd;
@@ -87,13 +87,13 @@ vector<size_t> pontos_nuvem_inicial, pontos_filtro_colorir;
 ///////////////////////////////////////////////////////////////////////////////////////////
 int deg2raw(double deg, string motor){
     if(motor == "pan")
-        return int((deg - deg_min_pan )*raw_deg + raw_min_pan);
+        return int(deg*raw_deg);//int((deg - deg_min_pan )*raw_deg + raw_min_pan);
     else
         return int((deg - deg_min_tilt)*raw_deg + raw_min_tilt);
 }
 float raw2deg(int raw, string motor){
     if(motor == "pan")
-        return (float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
+        return float(raw)*deg_raw;//(float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
     else
         return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
 }
