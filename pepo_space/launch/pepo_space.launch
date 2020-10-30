@@ -1,6 +1,5 @@
 <launch>
 
-<arg name="tilt_moving_speed" default="5"/>
 <arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
 <arg name="inicio_pan" default="10"/>
@@ -23,7 +22,6 @@
 
 <!--Lancar os servos dynamixel-->
 <include file="$(find dynamixel_workbench_controllers)/launch/multi_port_pepo.launch">
-    <param name="tilt_moving_speed" value="$(arg tilt_moving_speed)"/>
 </include>
 
 <!--Lancar scanner propriamente dito, online-->

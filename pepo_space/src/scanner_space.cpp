@@ -45,7 +45,7 @@ float raw_min_pan = 35, raw_max_pan = 4077;
 float deg_min_pan =  3, deg_max_pan =  358;
 float raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595  ;
 float deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.9;
-float raw_deg = 0.08764648, deg_raw = 1/raw_deg;
+float raw_deg = 11.37777, deg_raw = 1/raw_deg;
 // Servico para mover os servos
 ros::ServiceClient comando_motor;
 dynamixel_workbench_msgs::JointCommand cmd;
@@ -420,6 +420,7 @@ int main(int argc, char **argv)
                 indice_posicao++; // Proximo ponto de observacao
                 cmd.request.pan_pos  = pans_raw[indice_posicao];
                 cmd.request.tilt_pos = tilts_raw[indice_posicao];
+cout << "pans raw " << pans_raw[indice_posicao] << " tilt raw " << tilts_raw[indice_posicao] << endl;
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
             } else { // Se for a ultima, finalizar

@@ -1,5 +1,7 @@
 <launch>
+    <param name="/use_sim_time" value="true"/>
+
     <arg name="bag" default="record_fog"/>
     <arg name="robot" default="1"/>
-    <node pkg="rosbag" type="play" name="rosbag_play" output="screen" args=" /home/$(env USER)/Desktop/$(arg bag).bag --clock /cloud_space:=/cloud_space$(arg robot) /angle_space:=/angle_space$(arg robot) /image_user:=/image_user$(arg robot)"/>
+    <node pkg="rosbag" type="play" name="rosbag_play$(arg robot)" output="screen" args=" /home/$(env USER)/Desktop/$(arg bag).bag --clock /cloud_space:=/cloud_space$(arg robot) /angle_space:=/angle_space$(arg robot) /image_user:=/image_user$(arg robot)"/>
 </launch>
