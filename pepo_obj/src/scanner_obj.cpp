@@ -27,7 +27,7 @@ typedef PointXYZRGB PointT;
 ///
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 400; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 300; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 ProcessImages *pi;
@@ -41,6 +41,19 @@ int cont_aquisicao = 0;
 ros::Publisher im_pub;
 ros::Publisher cl_pub;
 
+///////////////////////////////////////////////////////////////////////////////////////////
+string create_folder(string p){
+    struct stat buffer;
+    for(int i=1; i<200; i++){ // Tentar criar ate 200 pastas - impossivel
+        string nome_atual = p + std::to_string(i);
+        if(stat(nome_atual.c_str(), &buffer)){ // Se nao existe a pasta
+            mkdir(nome_atual.c_str(), 0777);
+            return nome_atual;
+        }
+    }
+}
+///////////////////////////////////////////////////////////////////////////////////////////
+
 /// Callback da camera
 ///
 void camCallback(const sensor_msgs::ImageConstPtr& msg){
@@ -53,8 +66,7 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 
 /// Callback do laser
 ///
-void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
-{
+void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
     // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
     cl_pub.publish(*msg);
     if(aquisitando){
@@ -91,18 +103,12 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 80); // Z metros de profundidade
+            pass.setFilterLimits(0, 15); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1); // Brio
-            // Filtrando por voxels e outliers - essa vai para visualizacao
-            //ROS_WARN("Filtrando nuvem ...");
-            //VoxelGrid<PointT> voxel;
-            //voxel.setInputCloud(cloud_color);
-            //voxel.setLeafSize(0.01, 0.01, 0.01);
-            //voxel.filter(*cloud_color);
-            // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
+            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1);
+            // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
             if(cont_aquisicao < 10){
               pi->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
@@ -159,9 +165,16 @@ int main(int argc, char **argv)
   // Apagando pasta atual e recriando a mesma na area de trabalho
   char* home;
   home = getenv("HOME");
-  std::string pasta = std::string(home)+"/Desktop/"+nome_param.c_str()+"/";
-  system(("rm -r "+pasta).c_str());
-  mkdir(pasta.c_str(), 0777);
+  string pasta = string(home)+"/Desktop/objetos/";
+  struct stat buffer;
+  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+      mkdir(pasta.c_str(), 0777);
+  // Criando pasta mae
+  pasta = pasta + nome_param.c_str();
+  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+      mkdir(pasta.c_str(), 0777);
+  // Criando pastas filhas
+  pasta = create_folder(pasta + "/aquisicao") + "/";
 
   // Inicia nuvem parcial acumulada a cada passagem do laser
   parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();

@@ -97,6 +97,16 @@ float raw2deg(int raw, string motor){
     else
         return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
 }
+string create_folder(string p){
+    struct stat buffer;
+    for(int i=1; i<200; i++){ // Tentar criar ate 200 pastas - impossivel
+        string nome_atual = p + std::to_string(i);
+        if(stat(nome_atual.c_str(), &buffer)){ // Se nao existe a pasta
+            mkdir(nome_atual.c_str(), 0777);
+            return nome_atual;
+        }
+    }
+}
 ///////////////////////////////////////////////////////////////////////////////////////////
 void saveTimeFiles(){
     // Abre os arquivos todos
@@ -236,9 +246,17 @@ int main(int argc, char **argv)
     // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
     home = getenv("HOME");
-    pasta = string(home)+"/Desktop/"+nome_param.c_str()+"/";
-    system(("rm -r "+pasta).c_str());
-    mkdir(pasta.c_str(), 0777);
+    // Checando se ha a pasta spaces, senao criar
+    pasta = string(home)+"/Desktop/spaces/";
+    struct stat buffer;
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pasta mae
+    pasta = pasta + nome_param.c_str();
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pastas filhas
+    pasta = create_folder(pasta + "/scan") + "/";
 
     /// Preenchendo vetor de pan e tilt primeiro para a camera
     // Pontos de observacao em tilt
@@ -325,6 +343,14 @@ int main(int argc, char **argv)
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
+            ///// ENCONTRANDO PU PARA A MAQUINA JETSON
+            ///
+            ros::Time tempo_pu = ros::Time::now();
+            int teste_pu;
+            for(int i=0; i<10; i++)
+                teste_pu = 10+10;
+            ROS_WARN("Tempo PU para a jetson: %zu", (ros::Time::now() - tempo_pu).toNSec());
+
             // Se estavamos mudando de vista, nao estamos mais
             if(mudando_vista) mudando_vista = false;
             sleep(1); // Garantir o servo no lugar
@@ -420,7 +446,6 @@ int main(int argc, char **argv)
                 indice_posicao++; // Proximo ponto de observacao
                 cmd.request.pan_pos  = pans_raw[indice_posicao];
                 cmd.request.tilt_pos = tilts_raw[indice_posicao];
-cout << "pans raw " << pans_raw[indice_posicao] << " tilt raw " << tilts_raw[indice_posicao] << endl;
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
             } else { // Se for a ultima, finalizar
