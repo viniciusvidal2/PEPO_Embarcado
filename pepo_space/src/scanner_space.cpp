@@ -218,6 +218,21 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
+    ///// ENCONTRANDO PU PARA A MAQUINA JETSON
+    ///
+    int a=0;
+    ros::Time tem;
+    vector<uint64_t> temps(500);
+    for(int k=1; k<temps.size(); k++){
+      tem = ros::Time::now();
+      for(int i=0; i<10; i++)
+        a = 10+10;
+      temps[k] = (ros::Time::now() - tem).toNSec();
+    }
+    float avg = float(accumulate(temps.begin(), temps.end(), 0))/float(temps.size());
+    ROS_WARN("TEMPO PU DO EDGE: %.0f", avg);
+    cout << endl << endl << endl;
+
     // Pegando os parametros
     string nome_param;
     int step = 30; // [DEG]
@@ -343,13 +358,6 @@ int main(int argc, char **argv)
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
         if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
-            ///// ENCONTRANDO PU PARA A MAQUINA JETSON
-            ///
-            ros::Time tempo_pu = ros::Time::now();
-            int teste_pu;
-            for(int i=0; i<10; i++)
-                teste_pu = 10+10;
-            ROS_WARN("Tempo PU para a jetson: %zu", (ros::Time::now() - tempo_pu).toNSec());
 
             // Se estavamos mudando de vista, nao estamos mais
             if(mudando_vista) mudando_vista = false;
