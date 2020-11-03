@@ -1,9 +1,6 @@
 <launch>
 <arg name="pasta" default="Scanner_obj"/>
 
-<!--Lancar no da IMU-->
-<node name="imu_node" pkg="imu_i2c" type="imu.py" output="screen"/>
-
 <!--Lancar no do driver do laser-->
 <include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
 
@@ -23,7 +20,4 @@
 <node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
 
-<!--Lancar no do rosbridge para comunicacao com o app mobile-->
-<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
-</include>
 </launch>
