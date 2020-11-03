@@ -39,6 +39,17 @@ cv_bridge::CvImagePtr image_ptr;
 ProcessImages *pi;
 bool aquisitar_imagem = false;
 
+string create_folder(string p){
+    struct stat buffer;
+    for(int i=1; i<200; i++){ // Tentar criar ate 200 pastas - impossivel
+        string nome_atual = p + std::to_string(i);
+        if(stat(nome_atual.c_str(), &buffer)){ // Se nao existe a pasta
+            mkdir(nome_atual.c_str(), 0777);
+            return nome_atual;
+        }
+    }
+}
+
 /// Callback da camera
 ///
 void camCallback(const sensor_msgs::ImageConstPtr& msg){
@@ -64,12 +75,19 @@ int main(int argc, char **argv)
     int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
     n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
 
-    // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
     home = getenv("HOME");
-    pasta = string(home)+"/Desktop/"+nome_param.c_str()+"/";
-    system(("rm -r "+pasta).c_str());
-    mkdir(pasta.c_str(), 0777);
+    // Checando se ha a pasta spaces, senao criar
+    pasta = string(home)+"/Desktop/ambientes/";
+    struct stat buffer;
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pasta mae
+    pasta = pasta + nome_param.c_str();
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pastas filhas
+    pasta = create_folder(pasta + "/scan") + "/";
 
     // Iniciando ponteiro de imagem em cv_bridge
     image_ptr = (cv_bridge::CvImagePtr) new cv_bridge::CvImage;
