@@ -472,6 +472,10 @@ int main(int argc, char **argv)
                 savePointFiles();
                 ROS_INFO("Processado e finalizado o Scan.");
 
+                // Mata todos os nos que estao rodando
+                sleep(10);
+                system("gnome-terminal -x sh -c 'rosnode kill camera imu_node livox_lidar_publisher multi_port_pepo scanner_space encaminha_desktop'");
+
             }
         } // Fim if estamos dentro do waypoint
 
