@@ -262,7 +262,7 @@ int main(int argc, char **argv)
     char* home;
     home = getenv("HOME");
     // Checando se ha a pasta spaces, senao criar
-    pasta = string(home)+"/Desktop/spaces/";
+    pasta = string(home)+"/Desktop/ambientes/";
     struct stat buffer;
     if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
         mkdir(pasta.c_str(), 0777);

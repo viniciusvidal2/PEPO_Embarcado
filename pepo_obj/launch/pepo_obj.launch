@@ -23,7 +23,4 @@
 <node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
 
-<!--Lancar no do rosbridge para comunicacao com o app mobile-->
-<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
-</include>
 </launch>
