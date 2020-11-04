@@ -7,4 +7,8 @@
     <param name="rescale_camera_info"      value="true"/>
 </node>
 
+<!--Lancar no de comunicacao para enviar ao desktop-->
+<node name="encaminha_dados_app" pkg="communication" type="encaminha_dados_desktop" output="screen">
+</node>
+
 </launch>
