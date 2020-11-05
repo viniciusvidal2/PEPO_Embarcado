@@ -33,5 +33,13 @@ export ROS_MASTER_URI=http://192.168.0.101:11311
 roslaunch rosbridge_server rosbridge_websocket.launch
 sleep 5s
 
+rosparam set exposure_auto 1
+rosparam set white_balance_temperature_auto 0
+rosparam set exposure_absolute 8
+rosparam set brightness 500
+rosparam set backlight_compensation 0
+rosparam set saturation 250
+rosparam set white_balance_temperature 4000
+
 # Chamar o servidor flask para o aplicativo
 python3 /home/pepo/pepo_ws/src/PEPO_Embarcado/app.py

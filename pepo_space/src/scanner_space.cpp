@@ -60,7 +60,6 @@ bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria
 ros::Publisher cl_pub;
 ros::Publisher od_pub;
-ros::Publisher im_pub;
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 // Classe de processamento de imagens
@@ -175,8 +174,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem_imu)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-    // Publicando a imagem para ver o no de comunicacao com o desktop
-    im_pub.publish(*msg);
 }
 
 /// Callback servos
@@ -274,6 +271,8 @@ int main(int argc, char **argv)
     pasta = create_folder(pasta + "/scan") + "/";
 
     /// Preenchendo vetor de pan e tilt primeiro para a camera
+    ///
+    ros::Time tini = ros::Time::now();
     // Pontos de observacao em tilt
     vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
     ntilts = tilts_camera_deg.size();
@@ -296,7 +295,7 @@ int main(int argc, char **argv)
             pans_raw.push_back(deg2raw(pans_camera_deg[j], "pan"));
         }
     }
-
+    ROS_WARN("TEMPO PARA INICIAR TUDO: %zu", (ros::Time::now() - tini).toNSec());
     // Inicia servico para mexer os servos
     comando_motor = nh.serviceClient<dynamixel_workbench_msgs::JointCommand>("/joint_command");
 
@@ -340,7 +339,6 @@ int main(int argc, char **argv)
     // Publicadores
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
-    im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp" , 10);
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
