@@ -32,8 +32,6 @@ using namespace std;
 string pasta;
 // Posicao atual de aquisicao
 int indice_posicao = 0;
-// Publicador de imagem, nuvem parcial e odometria
-ros::Publisher im_pub;
 // Ponteiro de cv_bridge para a imagem
 cv_bridge::CvImagePtr image_ptr;
 ProcessImages *pi;
@@ -56,8 +54,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-    // Publicando a imagem para ver o no de comunicacao com o desktop
-    im_pub.publish(*msg);
 }
 
 /// Main
@@ -97,7 +93,6 @@ int main(int argc, char **argv)
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback);
 
     // Publicadores
-    im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp" , 10);
     ros::Publisher msg_pub = nh.advertise<std_msgs::String>("/feedback_scan", 10);
     std_msgs::String msg;
     msg.data = "Comecando a aquisicao de imagens !";
