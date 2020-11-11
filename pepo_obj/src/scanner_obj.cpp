@@ -29,17 +29,24 @@ cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
 int contador_nuvem = 0, N = 400; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
-ProcessCloud *pc;
 ProcessImages *pi;
-// Nuvem de pontos parciais
-PointCloud<PointXYZ>::Ptr parcial;
-// Testando sincronizar subscribers por mutex
-Mutex m;
 // Contador de aquisicoes - usa tambem para salvar no lugar certo
 int cont_aquisicao = 0;
 // Publisher para a nuvem e imagem
 ros::Publisher im_pub;
-ros::Publisher cl_pub;
+
+string pasta;
+
+string create_folder(string p){
+    struct stat buffer;
+    for(int i=1; i<200; i++){ // Tentar criar ate 200 pastas - impossivel
+        string nome_atual = p + std::to_string(i);
+        if(stat(nome_atual.c_str(), &buffer)){ // Se nao existe a pasta
+            mkdir(nome_atual.c_str(), 0777);
+            return nome_atual;
+        }
+    }
+}
 
 /// Callback da camera
 ///
@@ -51,79 +58,6 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     im_pub.publish(*msg);
 }
 
-/// Callback do laser
-///
-void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
-{
-    // Publicar a nuvem de pontos para o no de comunicacao com o Desktop
-    cl_pub.publish(*msg);
-    if(aquisitando){
-        // Ler a mensagem e acumular na nuvem total por N vezes
-        PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
-        fromROSMsg (*msg, *cloud);
-        pc->cleanMisreadPoints(cloud);
-        *parcial += *cloud;
-        // A nuvem ainda nao foi acumulada, frizar isso
-        aquisitar_imagem = true;
-        // Se total acumulado, travar o resto e trabalhar
-        if(contador_nuvem == N){
-            cont_aquisicao++;
-            m.lock();
-            ROS_WARN("Aquisicao %d foi acumulada, processando ...", cont_aquisicao);
-            // Vira a variavel de controle de recebimento de imagens e da nuvem
-            aquisitar_imagem = false;
-            aquisitando = false;
-            // Injetando cor na nuvem
-            PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
-            cloud_color->resize(parcial->size());
-            #pragma omp parallel for
-            for(size_t i=0; i < cloud_color->size(); i++){
-                cloud_color->points[i].r = 0; cloud_color->points[i].g = 0; cloud_color->points[i].b = 0;
-                cloud_color->points[i].x = parcial->points[i].x;
-                cloud_color->points[i].y = parcial->points[i].y;
-                cloud_color->points[i].z = parcial->points[i].z;
-            }
-            // Poupar memoria da parcial
-            parcial->clear();
-            // Transformando nuvem para o frame da camera
-            pc->transformToCameraFrame(cloud_color);
-            // Filtrar profundidade pra nao vir aquilo tudo de coisa
-            PassThrough<PointT> pass;
-            pass.setInputCloud(cloud_color);
-            pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 80); // Z metros de profundidade
-            pass.filter(*cloud_color);
-            // Colorir pontos com calibracao default para visualizacao rapida
-            ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
-            pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1); // Brio
-            // Filtrando por voxels e outliers - essa vai para visualizacao
-            //ROS_WARN("Filtrando nuvem ...");
-            //VoxelGrid<PointT> voxel;
-            //voxel.setInputCloud(cloud_color);
-            //voxel.setLeafSize(0.01, 0.01, 0.01);
-            //voxel.filter(*cloud_color);
-            // Salvar dados parciais na pasta Dados_PEPO (ou o nome inserido), no Desktop
-            ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
-            if(cont_aquisicao < 10){
-              pi->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
-            } else if(cont_aquisicao < 100) {
-              pi->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
-            } else {
-              pi->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
-            }
-            //////////////////////
-            // Zerar contador de nuvens da parcial
-            contador_nuvem = 0;
-            ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
-        } else {
-            contador_nuvem++;
-        }
-    }
-}
-
 /// Servico para controle de aquisicao
 ///
 bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
@@ -132,6 +66,22 @@ bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::
         aquisitar_imagem = true;
         res.result = 1;
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
+        ros::Rate r2(2);
+        for(int i=0; i<8; i++){
+            r2.sleep();
+            ros::spinOnce();
+        }
+        aquisitar_imagem = false;
+        string nome_imagem_atual;
+        if(cont_aquisicao + 1 < 10)
+            nome_imagem_atual = "imagem_00"+std::to_string(cont_aquisicao+1);
+        else if(cont_aquisicao+1 < 100)
+            nome_imagem_atual = "imagem_0" +std::to_string(cont_aquisicao+1);
+        else
+            nome_imagem_atual = "imagem_"  +std::to_string(cont_aquisicao+1);
+        pi->saveImage(image_ptr->image, nome_imagem_atual);
+
+        cont_aquisicao++;
     } else if (req.comando == 2) { // Acabamos de aquisitar
         fim_processo = true;
         res.result = 1;
@@ -159,32 +109,30 @@ int main(int argc, char **argv)
   // Apagando pasta atual e recriando a mesma na area de trabalho
   char* home;
   home = getenv("HOME");
-  std::string pasta = std::string(home)+"/Desktop/"+nome_param.c_str()+"/";
-  system(("rm -r "+pasta).c_str());
-  mkdir(pasta.c_str(), 0777);
-
-  // Inicia nuvem parcial acumulada a cada passagem do laser
-  parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
-  parcial->header.frame_id  = "pepo";
+  // Checando se ha a pasta spaces, senao criar
+  pasta = string(home)+"/Desktop/objetos/";
+  struct stat buffer;
+  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+      mkdir(pasta.c_str(), 0777);
+  // Criando pasta mae
+  pasta = pasta + nome_param.c_str();
+  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+      mkdir(pasta.c_str(), 0777);
+  // Criando pastas filhas
+  pasta = create_folder(pasta + "/scan") + "/";
 
   // Inicia classe de processo de nuvens
-  pc = new ProcessCloud(pasta);
   pi = new ProcessImages(pasta);
 
   // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
   ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
-  // Publicadores
-  im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp", 10);
-  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_temp", 10);
-
   // Subscribers dessincronizados para mensagens de laser, imagem e motores
-  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
-  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
+  ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback  );
 
   ROS_INFO("Comecando a aquisicao ...");
 
-  ros::Rate r(2);
+  ros::Rate r(10);
   while(ros::ok()){
       r.sleep();
       ros::spinOnce();

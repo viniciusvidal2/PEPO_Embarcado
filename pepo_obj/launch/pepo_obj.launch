@@ -1,9 +1,6 @@
 <launch>
 <arg name="pasta" default="Scanner_obj"/>
 
-<!--Lancar no do driver do laser-->
-<include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
-
 <!--Lancar no do driver camera USB-->
 <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
     <param name="cv_cap_prop_frame_width"  value="1920"/>
@@ -14,10 +11,6 @@
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_obj" pkg="pepo_obj" type="scanner_obj" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
-</node>
-
-<!--Lancar no que encaminha dados para a aplicacao desktop-->
-<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
 
 </launch>
