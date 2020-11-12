@@ -359,7 +359,7 @@ int main(int argc, char **argv)
 
             // Se estavamos mudando de vista, nao estamos mais
             if(mudando_vista) mudando_vista = false;
-            sleep(1); // Garantir o servo no lugar
+            sleep(4); // Garantir o servo no lugar
 
             // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
             if(!iniciar_laser) iniciar_laser = true;
