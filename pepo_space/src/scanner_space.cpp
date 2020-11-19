@@ -381,7 +381,7 @@ int main(int argc, char **argv)
             Mat imagem_temp;
             image_ptr->image.copyTo(imagem_temp);
             // Salvar quaternion para criacao da imagem 360 final
-            Matrix3f R360 = pc->euler2matrix(current_roll, -pitch, -DEG2RAD(raw2deg(pan, "pan")));
+            Matrix3f R360 = pc->euler2matrix(current_roll, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
@@ -431,7 +431,7 @@ int main(int argc, char **argv)
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
             odom_cloud_out.pose.pose.position.x = -current_roll;
-            odom_cloud_out.pose.pose.position.y = pitch;
+            odom_cloud_out.pose.pose.position.y = DEG2RAD(raw2deg(tilt, "tilt"));
             odom_cloud_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar

@@ -27,7 +27,7 @@ typedef PointXYZRGB PointT;
 ///
 cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 300; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 150; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 ProcessImages *pi;
