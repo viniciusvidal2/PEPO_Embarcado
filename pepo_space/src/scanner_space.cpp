@@ -20,6 +20,8 @@
 #include "../../libraries/include/processimages.h"
 #include "led_control/LED.h"
 
+#include "communication/state.h"
+
 /// Namespaces
 ///
 using namespace pcl;
@@ -255,6 +257,15 @@ int main(int argc, char **argv)
             break;
     }
 
+    // Servico para avisar se comecou ou acabou
+    ros::ServiceClient switch_state_srv = nh.serviceClient<communication::state>("switch_state");
+    communication::state srv_msg;
+    srv_msg.request.state = 1;
+    if(switch_state_srv.call(srv_msg))
+        ROS_WARN("Iniciamos o sistema corretamente !");
+    else
+        ROS_ERROR("Gerenciamento global nao sabe que iniciamos o sistema !");
+
     // Apagando pasta atual e recriando a mesma na area de trabalho
     char* home;
     home = getenv("HOME");
@@ -470,9 +481,13 @@ int main(int argc, char **argv)
                 savePointFiles();
                 ROS_INFO("Processado e finalizado o Scan.");
 
+                // Avisar ao gerenciador global que acabamos
+                sleep(8);
+                srv_msg.request.state = 0;
+                if(switch_state_srv.call(srv_msg))
+                    ROS_INFO("Terminamos a aquisicao corretamente.");
                 // Mata todos os nos que estao rodando
-                sleep(10);
-                system("gnome-terminal -x sh -c 'rosnode kill camera imu_node livox_lidar_publisher multi_port_pepo scanner_space encaminha_desktop'");
+                system("rosnode kill camera imu_node livox_lidar_publisher multi_port_pepo scanner_space");
 
             }
         } // Fim if estamos dentro do waypoint

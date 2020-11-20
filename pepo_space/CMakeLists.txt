@@ -19,7 +19,7 @@ include_directories(${PCL_INCLUDE_DIRS})
 include_directories(../libraries/include)
 include_directories(${OpenMP_INCLUDE_DIRS})
 
-catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs dynamixel_sdk dynamixel_workbench_toolbox nav_msgs pcl_ros laser_geometry dynamixel_workbench_msgs led_control tf2_ros pcl_conversions message_filters)
+catkin_package()
 
 add_executable(scanner_space src/scanner_space.cpp ../libraries/src/processcloud.cpp ../libraries/src/processimages.cpp)
 target_compile_options(scanner_space PRIVATE ${OpenMP_FLAGS})

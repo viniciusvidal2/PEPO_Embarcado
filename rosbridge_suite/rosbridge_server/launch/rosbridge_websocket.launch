@@ -84,4 +84,7 @@
     <param name="services_glob" value="$(arg services_glob)"/>
     <param name="params_glob" value="$(arg params_glob)"/>
   </node>
+
+  <!--Vinicius-->
+  <node name="system_state" pkg="communication" type="system_state_node" output="screen"/>
 </launch>
