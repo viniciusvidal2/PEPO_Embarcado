@@ -139,7 +139,7 @@ int main(int argc, char **argv)
         if(indice_posicao == maximo){
             msg.data = "Terminando as aquisicoes do scanner, desligando ...";
             msg_pub.publish(msg);
-            system("gnome-terminal -x sh -c 'rosnode kill camera scanner_space encaminha_desktop'");
+            system("rosnode kill camera scanner_space");
             ros::shutdown();
             break;
         }
