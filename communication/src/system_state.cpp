@@ -3,6 +3,7 @@
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/String.h"
+#include "std_msgs/Float32.h"
 
 using namespace std;
 
@@ -12,7 +13,7 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 
 }
 
-void feedbackCallback(const std_msgs::StringConstPtr& msg){
+void feedbackCallback(const std_msgs::Float32ConstPtr& msg){
 
 }
 
