@@ -7,6 +7,7 @@
 
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Float32.h>
 
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
@@ -93,9 +94,9 @@ int main(int argc, char **argv)
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback);
 
     // Publicadores
-    ros::Publisher msg_pub = nh.advertise<std_msgs::String>("/feedback_scan", 10);
-    std_msgs::String msg;
-    msg.data = "Comecando a aquisicao de imagens !";
+    ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
+    std_msgs::Float32 msg;
+    msg.data = 0;
     msg_pub.publish(msg);
 
     ros::Rate r(20), r2(1), r3(0.2);
@@ -126,9 +127,7 @@ int main(int argc, char **argv)
         else
             nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
         pi->saveImage(imagem_temp, nome_imagem_atual);
-        msg.data = "Aquisicao da imagem " + nome_imagem_atual + " com sucesso !";
-        msg_pub.publish(msg);
-        msg.data = "Progresso atual: " + std::to_string(float(indice_posicao+1)/float(maximo)*100) + "% .";
+        msg.data = 100.0*float(indice_posicao+1)/float(maximo);
         msg_pub.publish(msg);
         indice_posicao++;
 
@@ -137,7 +136,7 @@ int main(int argc, char **argv)
         r.sleep();
 
         if(indice_posicao == maximo){
-            msg.data = "Terminando as aquisicoes do scanner, desligando ...";
+            msg.data = 100;
             msg_pub.publish(msg);
             system("rosnode kill camera scanner_space");
             ros::shutdown();
