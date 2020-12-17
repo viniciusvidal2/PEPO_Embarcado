@@ -42,5 +42,5 @@ rosparam set saturation 200
 rosparam set white_balance_temperature 4000
 
 # Chamar o servidor flask para o aplicativo
-export FLASK_APP=/home/cap/pepo_ws/src/PEPO_Embarcado:app
+export FLASK_APP=/home/pepo/pepo_ws/src/PEPO_Embarcado:app
 nohup flask run --host 0.0.0.0 --no-reload &

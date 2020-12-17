@@ -88,7 +88,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             // Injetando cor na nuvem
             PointCloud<PointT>::Ptr cloud_color (new PointCloud<PointT>());
             cloud_color->resize(parcial->size());
-            #pragma omp parallel for
+#pragma omp parallel for
             for(size_t i=0; i < cloud_color->size(); i++){
                 cloud_color->points[i].r = 0; cloud_color->points[i].g = 0; cloud_color->points[i].b = 0;
                 cloud_color->points[i].x = parcial->points[i].x;
@@ -111,14 +111,14 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
             if(cont_aquisicao < 10){
-              pi->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
+                pi->saveImage(image_ptr->image, "imagem_00"+std::to_string(cont_aquisicao));
+                pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
             } else if(cont_aquisicao < 100) {
-              pi->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
+                pi->saveImage(image_ptr->image, "imagem_0"+std::to_string(cont_aquisicao));
+                pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
             } else {
-              pi->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
-              pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
+                pi->saveImage(image_ptr->image, "imagem_"+std::to_string(cont_aquisicao));
+                pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
             //////////////////////
             // Zerar contador de nuvens da parcial
@@ -153,60 +153,61 @@ bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::
 ///
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "scanner_obj");
-  ros::NodeHandle nh;
-  ros::NodeHandle n_("~");
-  ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
+    ros::init(argc, argv, "scanner_obj");
+    ros::NodeHandle nh;
+    ros::NodeHandle n_("~");
+    ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
 
-  // Pegando o nome da pasta por parametro
-  string nome_param;
-  n_.param("pasta", nome_param, string("Dados_PEPO"));
+    // Pegando o nome da pasta por parametro
+    string nome_param;
+    n_.param("pasta", nome_param, string("Dados_PEPO"));
 
-  // Apagando pasta atual e recriando a mesma na area de trabalho
-  char* home;
-  home = getenv("HOME");
-  string pasta = string(home)+"/Desktop/objetos/";
-  struct stat buffer;
-  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
-      mkdir(pasta.c_str(), 0777);
-  // Criando pasta mae
-  pasta = pasta + nome_param.c_str();
-  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
-      mkdir(pasta.c_str(), 0777);
-  // Criando pastas filhas
-  pasta = create_folder(pasta + "/aquisicao") + "/";
+    // Apagando pasta atual e recriando a mesma na area de trabalho
+    char* home;
+    home = getenv("HOME");
+    string pasta = string(home)+"/Desktop/objetos/";
+    struct stat buffer;
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pasta mae
+    pasta = pasta + nome_param.c_str();
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pastas filhas
+    pasta = create_folder(pasta + "/aquisicao") + "/";
 
-  // Inicia nuvem parcial acumulada a cada passagem do laser
-  parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
-  parcial->header.frame_id  = "pepo";
+    // Inicia nuvem parcial acumulada a cada passagem do laser
+    parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
+    parcial->header.frame_id  = "pepo";
 
-  // Inicia classe de processo de nuvens
-  pc = new ProcessCloud(pasta);
-  pi = new ProcessImages(pasta);
+    // Inicia classe de processo de nuvens
+    pc = new ProcessCloud(pasta);
+    pi = new ProcessImages(pasta);
 
-  // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
-  ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
+    // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
+    ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
 
-  // Publicadores
-  im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp", 10);
-  cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_temp", 10);
+    // Publicadores
+    im_pub = nh.advertise<sensor_msgs::Image      >("/image_temp", 10);
+    cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_temp", 10);
 
-  // Subscribers dessincronizados para mensagens de laser, imagem e motores
-  ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
-  ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
+    // Subscribers dessincronizados para mensagens de laser e imagem
+    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
+    ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
 
-  ROS_INFO("Comecando a aquisicao ...");
+    ROS_INFO("Comecando a aquisicao ...");
 
-  ros::Rate r(2);
-  while(ros::ok()){
-      r.sleep();
-      ros::spinOnce();
+    ros::Rate r(2);
+    while(ros::ok()){
+        r.sleep();
+        ros::spinOnce();
 
-      if(fim_processo){
-        ros::shutdown();
-        break;
-      }
-  }
+        if(fim_processo){
+            system("rosnode kill camera imu_node livox_lidar_publisher scanner_obj");
+            ros::shutdown();
+            break;
+        }
+    }
 
-  return 0;
+    return 0;
 }

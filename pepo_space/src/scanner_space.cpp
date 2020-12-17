@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Float32.h>
 
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
@@ -266,7 +267,7 @@ int main(int argc, char **argv)
     else
         ROS_ERROR("Gerenciamento global nao sabe que iniciamos o sistema !");
 
-    // Apagando pasta atual e recriando a mesma na area de trabalho
+    // Toda a organizacao em pastas na area de trabalho para o space atual
     char* home;
     home = getenv("HOME");
     // Checando se ha a pasta spaces, senao criar
@@ -350,6 +351,10 @@ int main(int argc, char **argv)
     // Publicadores
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
+    ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
+    std_msgs::Float32 msg_feedback;
+    msg_feedback.data = 0;
+    msg_pub.publish(msg_feedback);
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
@@ -460,12 +465,18 @@ int main(int argc, char **argv)
             tempo_nuvem = ros::Time::now();
             // Enviar para a proxima posicao
             if(indice_posicao + 1 < pans_raw.size()){
+
                 indice_posicao++; // Proximo ponto de observacao
                 cmd.request.pan_pos  = pans_raw[indice_posicao];
                 cmd.request.tilt_pos = tilts_raw[indice_posicao];
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
+                // Fala a porcentagem do total que ja resolvemos
+                msg_feedback.data = 100.0*float(indice_posicao)/float(pans_raw.size());
+                msg_pub.publish(msg_feedback);
+
             } else { // Se for a ultima, finalizar
+
                 indice_posicao++;
                 ROS_INFO("Aquisitamos tudo, enviando para posicao inicial novamente ...");
                 cmd_led.request.led = 1; // LED continuo
@@ -473,6 +484,9 @@ int main(int argc, char **argv)
                 cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
                 cmd.request.tilt_pos = raw_hor_tilt;
                 comando_motor.call(cmd);
+                // Ja chegamos no 100 pct
+                msg_feedback.data = 100.0;
+                msg_pub.publish(msg_feedback);
 
                 // Criar a 360 crua
                 ROS_INFO("Processando imagem 360 ...");

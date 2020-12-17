@@ -33,10 +33,6 @@
     <param name="qualidade"  value="$(arg qual)"      />
 </node>
 
-<!--Lancar no de comunicacao para enviar ao desktop-->
-<!--<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
-</node>-->
-
 <!--Lancar RViz com configuracao salva-->
 <group if="$(arg visualizar)">
         <node name="rviz_pepo" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">
