@@ -257,7 +257,7 @@ int main(int argc, char **argv)
   char* home;
   home = getenv("HOME");
   // Checando ultima pasta criada, pegar ela
-  pasta = string(home)+"/Desktop/ambientes/";
+  pasta = string(home)+"/Desktop/ambientes/"+nome_param;
   pasta = find_current_folder(pasta + "/scan") + "/";
 
   // Inicia classe de processo de nuvens
