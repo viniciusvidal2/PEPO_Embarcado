@@ -24,7 +24,7 @@
 <include file="$(find dynamixel_workbench_controllers)/launch/multi_port_pepo.launch">
 </include>
 
-<!--Lancar scanner propriamente dito, online, edge-->
+<!--Lancar scanner propriamente dito, online-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
     <param name="inicio_pan" value="$(arg inicio_pan)"/>
@@ -33,17 +33,10 @@
     <param name="qualidade"  value="$(arg qual)"      />
 </node>
 
-<node name="acc_space_node" pkg="fog" type="acc_space_node" output="screen">
-    <param name="pasta" value="$(arg pasta)"/>
-    <param name="vs"    value="0" />
-    <param name="df"    value="40"/>
-    <param name="fp"    value="0" />
-</node>
-
 <!--Lancar RViz com configuracao salva-->
 <group if="$(arg visualizar)">
-    <node name="rviz_pepo" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">
-    </node>
+        <node name="rviz_pepo" pkg="rviz" type="rviz" args=" -d $(find laser_camera)/resources/aquisicao.rviz" output="screen">
+	</node>
 </group>
 
 </launch>

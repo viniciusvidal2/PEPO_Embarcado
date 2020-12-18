@@ -182,3 +182,114 @@ Vector2f ProcessCloud::getFocuses(int scale){
 
     return f;
 }
+/////////////////////////////////////////////////////////////////////////////////////////////////
+Vector3f ProcessCloud::gettCam(){
+  return Rt1.block<3,1>(0, 3);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void ProcessCloud::compileFinalSFM(vector<string> linhas){
+  // Se ja existe o arquivo, deletar para sobreescrever
+  struct stat buffer;
+  string nome_sfm_final = pasta + "cameras.sfm";
+  if(!stat(nome_sfm_final.c_str(), &buffer)){
+    if(remove(nome_sfm_final.c_str()) == 0)
+      ROS_INFO("Deletamos SFM anterior.");
+    else
+      ROS_ERROR("SFM final anterior nao foi deletado.");
+  }
+  // Anota num arquivo a partir do nome vindo
+  ofstream sfm(nome_sfm_final);
+  if(sfm.is_open()){
+
+    sfm << std::to_string(linhas.size())+"\n\n"; // Quantas imagens
+    for(int i=0; i < linhas.size(); i++)
+      sfm << linhas[i]; // Imagem com detalhes de camera
+
+  } // fim do if is open
+  sfm.close(); // Fechar para nao ter erro
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////
+std::string ProcessCloud::escreve_linha_sfm(string nome, Matrix3f r, Vector3f t){
+  string linha = pasta+nome;
+  // Adicionar matriz de rotacao linha 1
+  linha = linha + " " + std::to_string(r(0, 0)) + " " + std::to_string(r(0, 1)) + " " + std::to_string(r(0, 2));
+  // Adicionar matriz de rotacao linha 2
+  linha = linha + " " + std::to_string(r(1, 0)) + " " + std::to_string(r(1, 1)) + " " + std::to_string(r(1, 2));
+  // Adicionar matriz de rotacao linha 3
+  linha = linha + " " + std::to_string(r(2, 0)) + " " + std::to_string(r(2, 1)) + " " + std::to_string(r(2, 2));
+  // Adicionar vetor de translacao
+  linha = linha + " " + std::to_string(t(0)) + " " + std::to_string(t(1)) + " " + std::to_string(t(2));
+  // Adicionar foco x e y como na matriz da camera em resolucao HD
+  linha = linha + " " + std::to_string(K1(0, 0)) + " " + std::to_string(K1(1, 1));
+  // Adicionar centro optico em x e y como na matriz da camera em resolucao HD
+  linha = linha + " " + std::to_string(K1(0, 2)) + " " + std::to_string(K1(1, 2));
+  // Adicionando quebra de linha - padrao do MART
+  linha = linha + "\n";
+  // Muda as virgulas por pontos no arquivo, caso existam
+  std::replace(linha.begin(), linha.end(), ',', '.');
+  return linha;
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void ProcessCloud::blueprint(PointCloud<PointT>::Ptr cloud_in, float sa, float sr, Mat &bp){
+  /// Separando a nuvem em clusters perpendiculares ao eixo y - y negativo para cima
+  ///
+  PointCloud<PointT>::Ptr cloud (new PointCloud<PointT>);
+  *cloud = *cloud_in;
+  // Filtrando a altura que vai entrar na roda
+  float metros_altura_acima_pepo = 1; // quantos metros acima do PEPO para fazer a nuvem
+  PassThrough<PointT> pass;
+  pass.setFilterFieldName("y");
+  pass.setFilterLimits(-metros_altura_acima_pepo, 100); // Negativo de tudo no eixo Y
+  pass.setNegative(false);
+  pass.setInputCloud(cloud);
+  pass.filter(*cloud);
+  // Filtrando pontos fora da area de interesse
+  pass.setFilterFieldName("z");
+  pass.setFilterLimits(-sa/2, sa/2); // Quadrado em Z
+  pass.setInputCloud(cloud);
+  pass.filter(*cloud);
+  pass.setFilterFieldName("x");
+  pass.setFilterLimits(-sa/2, sa/2); // Quadrado em Z
+  pass.setInputCloud(cloud);
+  pass.filter(*cloud);
+  int w = sa/sr, h = sa/sr;
+  vector< vector<PointT> > supervoxels(w);
+  for(int i=0; i<supervoxels.size(); i++) supervoxels[i].resize(h);
+  // Preenchendo o os supervoxels com um ponto em altura inicial para a comparacao
+  PointT pini;
+  pini.y = 100;
+#pragma omp parallel for
+  for(int u=0; u<supervoxels.size(); u++){
+    for(int v=0; v<supervoxels[u].size(); v++)
+      supervoxels[u][v] = pini;
+  }
+  // Destinando cada ponto da nuvem original para o seu local no vetor de vetores segundo dimensoes, se for mais alto que o anterior
+  for(size_t i=0; i<cloud->size(); i++){
+    int u = abs(cloud->points[i].x - (-sa/2))/sa * w, v = abs(cloud->points[i].z - (-sa/2))/sa * h;
+    if(u >= w) u = w - 1;
+    if(v >= h) v = h - 1;
+    if(cloud->points[i].y < supervoxels[u][v].y)
+      supervoxels[u][v] = cloud->points[i];
+  }
+  cloud->clear();
+
+  /// Colorindo a imagem final de acordo com a resolucao da separacao da nuvem
+  ///
+  // Iniciar a imagem com a quantidade de pixels de acordo com numero de supervoxels
+  bp = Mat::zeros(cv::Size(w, h), CV_8UC3);
+  // Processando em paralelo, procurar ponto mais alto de cada supervoxel
+#pragma omp parallel for
+  for(int u=0; u<supervoxels.size(); u++){
+    for(int v=0; v<supervoxels[u].size(); v++){
+      PointT p = supervoxels[u][v];
+      Vec3b cor;
+      // Atribuir cor do ponto mais alto aquele lugar da foto
+      cor.val[0] = p.b; cor.val[1] = p.g; cor.val[2] = p.r;
+      bp.at<Vec3b>(h-1-v, u) = cor;
+    }
+  }
+
+  /// Salvando
+  ///
+  imwrite(pasta+"planta_baixa.png", bp);
+}

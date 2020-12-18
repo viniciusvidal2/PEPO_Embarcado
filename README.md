@@ -1,17 +1,20 @@
-# B9
-Codigos para funcionamento e controle do scanner 3D B9
+# PEPO_Embarcado
+This is a repository for the 3D Scanner called PEPO, developed for the Project "Virtual". It is composed of an embedded NVidia Jetson Nano board, a Livox MID-40 lidar sensor, a Full HD Logitech USB camera, Dynamixel servo motors and a wireless router, everything meant to reconstruct objects and the whole environment around it!
 
-## livox_ros_driver
-Driver para funcionar o laser da Livox, lembrar de baixar o SDK do laser e acertar o ip do computador para estático, de preferência 192.169.1.128
+This repository is dedicated to the Edge node of the architecture, so everything is developed for an embedded NVidia Jetson Nano running Ubuntu 18 and ROS Melodic. If you are interested in the Fog node environment (laptop), take a look in our [FOG repository](https://github.com/viniciusvidal2/PEPO).
 
-## libraries
-Pasta com classes para executar rotinas em qualquer pacote do projeto
+Check out a picture of the first prototype developed by Antonio, a member of our team.
 
-## usb_cam
-Driver para ler câmera webcam
+![robot](https://github.com/viniciusvidal2/PEPO_Embarcado/blob/master/images/IMG_20200429_173151016.jpg)
 
-## laser_camera
-Pacote com tudo que e necessario para ler topicos de laser e camera e processar os dados entregando o produto final em nuvem de pontos e imagens
+## Developer team
+  * [Vinicius Vidal](https://www.linkedin.com/in/vinicius-vidal-2a6834b1/)
+  * [Juliano Masson](https://www.linkedin.com/in/juliano-emir-nunes-masson-9bb99415b/)
+  * [Maria Julia Aguiar](https://www.linkedin.com/in/mariajuliarosaaguiar/)
+  * [Amanda Timotheo](https://www.linkedin.com/in/amanda-timotheo-1a68b9146/)
+  * [Antonio Pancotti](https://www.linkedin.com/in/vinicius-vidal-2a6834b1/)
+  * [Mathaus Silva](https://www.linkedin.com/in/mathaus-ferreira-779674a1/)
+  ### Project Coordinator:
+  * [Leonardo Honorio](https://www.linkedin.com/in/leonardo-hon%C3%B3rio-205991ba/)
+  
 
-## accumulate_point_cloud
-Pacote para acumular nuvem do laser e reconhecer movimentos na cena - Maria Julia e Amanda

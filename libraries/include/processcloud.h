@@ -30,6 +30,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/statistical_outlier_removal.h>
@@ -85,6 +86,12 @@ public:
   Matrix3f euler2matrix(float r, float p, float y);
   void cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud);
   Vector2f getFocuses(int scale);
+
+  // Entradas apos colocar a fog embarcada
+  void blueprint(PointCloud<PointT>::Ptr cloud_in, float sa, float sr, Mat &bp);
+  string escreve_linha_sfm(string nome, Matrix3f r, Vector3f t);
+  void compileFinalSFM(vector<string> linhas);
+  Vector3f gettCam();
 
 private:
 

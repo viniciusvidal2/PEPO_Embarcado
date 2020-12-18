@@ -47,7 +47,7 @@ vector<float> pans_deg, tilts_deg; // [DEG]
 float raw_min_pan = 35, raw_max_pan = 4077;
 float deg_min_pan =  3, deg_max_pan =  358;
 float raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595  ;
-float deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.9;
+float deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.2;
 float raw_deg = 11.37777, deg_raw = 1/raw_deg;
 // Servico para mover os servos
 ros::ServiceClient comando_motor;
@@ -351,10 +351,6 @@ int main(int argc, char **argv)
     // Publicadores
     cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_space", 10);
     od_pub = nh.advertise<nav_msgs::Odometry      >("/angle_space", 10);
-    ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
-    std_msgs::Float32 msg_feedback;
-    msg_feedback.data = 0;
-    msg_pub.publish(msg_feedback);
 
     // Iniciando a nuvem parcial acumulada de cada pan
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
@@ -471,9 +467,6 @@ int main(int argc, char **argv)
                 cmd.request.tilt_pos = tilts_raw[indice_posicao];
                 if(comando_motor.call(cmd))
                     ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
-                // Fala a porcentagem do total que ja resolvemos
-                msg_feedback.data = 100.0*float(indice_posicao)/float(pans_raw.size());
-                msg_pub.publish(msg_feedback);
 
             } else { // Se for a ultima, finalizar
 
@@ -484,9 +477,6 @@ int main(int argc, char **argv)
                 cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
                 cmd.request.tilt_pos = raw_hor_tilt;
                 comando_motor.call(cmd);
-                // Ja chegamos no 100 pct
-                msg_feedback.data = 100.0;
-                msg_pub.publish(msg_feedback);
 
                 // Criar a 360 crua
                 ROS_INFO("Processando imagem 360 ...");
