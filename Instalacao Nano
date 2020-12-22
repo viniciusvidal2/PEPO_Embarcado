@@ -61,4 +61,7 @@ sudo pip3 install tornado pymongo
 sudo apt-get update -y
 sudo apt-get install -y v4l-utils
 
-
+16- Adicionar ao arquivo sudo vim /etc/sudoers os seguintes comandos
+pepo ALL=(ALL) NOPASSWD: /bin/date
+pepo ALL=(ALL) NOPASSWD: /sbin/hwclock
+pepo ALL=(ALL) NOPASSWD: /usr/bin/timedatectl

@@ -8,7 +8,7 @@ import subprocess
 import time
 import shutil
 
-global_ros_ip = '192.168.0.101'
+global_ros_ip = '0.0.0.0'
 global_ros_port = 9090
 ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
 ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
@@ -101,7 +101,24 @@ def get_feedback():
     return jsonify(global_feedback)
 
 
-@app.route("/project/delete", methods=['DELETE'])
+@app.route("/date", methods=['GET'])
+def get_date():
+    process = subprocess.Popen('date', stdout=subprocess.PIPE)
+    out, err = process.communicate(timeout=2)
+
+    return jsonify(out)
+
+
+@app.route("/date", methods=['POST'])
+def post_date():
+    data = request.get_json()
+    param_date = data['dateStr']
+    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) +"' && sudo hwclock -w")
+
+    return jsonify(True)
+
+
+@app.route("/project/delete", methods=['POST'])
 def project_delete():
     data = request.get_json()
     param_arquivo = data['arquivoStr']
