@@ -67,6 +67,14 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
+    // Publicadores
+    ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
+    std_msgs::Float32 msg;
+    msg.data = 0;
+    msg_pub.publish(msg);
+    msg_pub.publish(msg);
+    msg_pub.publish(msg);
+
     // Pegando os parametros
     string nome_param;
     int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
@@ -92,12 +100,6 @@ int main(int argc, char **argv)
 
     // Subscribers
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback);
-
-    // Publicadores
-    ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
-    std_msgs::Float32 msg;
-    msg.data = 0;
-    msg_pub.publish(msg);
 
     ros::Rate r(20), r2(1), r3(0.2);
     int maximo = 20, contador;
