@@ -14,7 +14,7 @@ ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
 ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
 ros.run()
 
-global_project_root_path = '/home/cap/Desktop/'
+global_project_root_path = '/home/pepo/Desktop/'
 global_project_accepted_types = ['ambientes', 'objetos']
 global_feedback = ''
 global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
@@ -33,6 +33,22 @@ cors = CORS(app)
 @app.route("/")
 def get_default_route():
     return redirect('/project/list')
+
+
+@app.route("/acquisition/cancel", methods=['POST'])
+def post_acquisition_cancel():
+    node_kill_list = [
+        'camera',
+        'imu_node',
+        'livox_lidar_publisher',
+        'multi_port_pepo scanner_space',
+        'acc_space_node scanner_obj'
+    ]
+
+    for node in node_kill_list:
+        os.system('rosnode kill ' + node)
+
+    return jsonify('ok')
 
 
 @app.route("/camera/is_busy", methods=['GET'])
@@ -231,8 +247,8 @@ def ping():
 def ros_status():
     data = {
         'is_ros_connected_bool': ros.is_connected,
-        'distro_str': ros.get_param('rosdistro', callback=None).rstrip().capitalize(),
-        'version_str': ros.get_param('rosversion', callback=None).rstrip()
+        'distro_str': roslibpy.Param(ros, 'rosdistro').get(callback=None, timeout=30).rstrip().capitalize(),
+        'version_str': roslibpy.Param(ros, 'rosversion').get(callback=None, timeout=30).rstrip()
     }
 
     return jsonify(data)
@@ -240,7 +256,7 @@ def ros_status():
 
 @app.route('/ros/get_param/<param_name>', methods=['GET'])
 def ros_get_param(param_name):
-    value = ros.get_param(param_name, callback=None)
+    value = roslibpy.Param(ros, param_name).get(callback=None, timeout=30)
     return jsonify(value)
 
 
@@ -249,21 +265,17 @@ def ros_set_param():
     data = request.get_json()
     param = data['param']
     value = data['value']
-    ros.set_param(param, value)
+    roslibpy.Param(ros, param).set(value, callback=None, timeout=30)
 
     # X=1(desligado) ou X=3(ligado)
     if param == 'exposure_auto':
-
-        command_value = 1
-
-        if value == True:
-            command_value = 3
-
-        os.system('v4l2-ctl --set-ctrl=exposure_auto=' + str(command_value))
+        os.system('v4l2-ctl --set-ctrl=exposure_auto=' + str(value))
 
     # Range 0 < X < 2500
     elif param == 'exposure_absolute':
-        if 0 <= value <= 2500:
+        is_exposure_auto = value = roslibpy.Param(ros, 'exposure_auto').get(callback=None, timeout=30)
+
+        if 0 <= value <= 2500 and is_exposure_auto == 1:
             os.system('v4l2-ctl --set-ctrl=exposure_absolute=' + str(value))
 
     # Range 0 < X < 200
@@ -271,7 +283,7 @@ def ros_set_param():
         if 0 <= value <= 200:
             os.system('v4l2-ctl --set-ctrl=brightness=' + str(value))
 
-            # Range 50 < X < 200
+    # Range 50 < X < 200
     elif param == 'saturation':
         if 50 <= value <= 200:
             os.system('v4l2-ctl --set-ctrl=saturation=' + str(value))
@@ -280,19 +292,15 @@ def ros_set_param():
     elif param == 'contrast':
         os.system('v4l2-ctl --set-ctrl=contrast=' + str(value))
 
-        # X=0(desligado) ou X=1(ligado)
+    # X=0(desligado) ou X=1(ligado)
     elif param == 'white_balance_temperature_auto':
+        os.system('v4l2-ctl --set-ctrl=white_balance_temperature_auto=' + str(value))
 
-        command_value = 0
-
-        if value == True:
-            command_value = 1
-
-        os.system('v4l2-ctl --set-ctrl=white_balance_temperature_auto=' + str(command_value))
-
-        # Range 2800 < X < 6000
+    # Range 2800 < X < 6000
     elif param == 'white_balance_temperature':
-        if 50 <= value <= 200:
+        roslibpy.Param(ros, 'white_balance_temperature_auto').get(callback=None, timeout=30)
+
+        if 50 <= value <= 200 and is_auto == 0:
             os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))
 
     return jsonify(value)
