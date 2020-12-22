@@ -1,131 +1,251 @@
 # -*- coding: utf-8 -*-
-
-from collections import defaultdict
-from flask import Flask, jsonify, request, send_file, redirect, url_for, make_response
+from flask import Flask, jsonify, request, send_file, redirect
 from flask_cors import CORS
 import glob
-import json
 import roslibpy
-import os 
+import os
+import subprocess
 import time
 import shutil
 
-projectListPath = '/mnt/dev/capmobilefiles/'
-projectTypes = ['ambientes', 'objetos']
+global_ros_ip = '0.0.0.0'
+global_ros_port = 9090
+ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
+ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
+ros.run()
+
+global_project_root_path = '/home/cap/Desktop/'
+global_project_accepted_types = ['ambientes', 'objetos']
+global_feedback = ''
+global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
+global_image_camera = ''
+global_image_topic = roslibpy.Topic(ros, '/camera/image_raw/compressed', 'sensor_msgs/CompressedImage')
+global_camera_state = False
+global_camera_state_topic = roslibpy.Topic(ros, '/camera_state', 'std_msgs/Bool')
+global_scan_state = False
+global_scan_state_topic = roslibpy.Topic(ros, '/scan_state', 'std_msgs/Bool')
+
 
 app = Flask(__name__)
 cors = CORS(app)
 
-#ros = roslibpy.Ros(host='192.168.0.139', port=9090)
-ros = roslibpy.Ros(host='0.0.0.0', port=9090)
-ros.run()
-
-imageTopic = roslibpy.Topic(ros, '/image_user/compressed', 'sensor_msgs/CompressedImage')
-imageCamera = ''
 
 @app.route("/")
-def getDefaultRoute():
+def get_default_route():
     return redirect('/project/list')
 
-@app.route("/project/aquisicao", methods=['POST'])
-def aquisicaoProject():
-    data = request.get_json()
-    nomeStr = data['nomeStr']
-    tipoInt = data['tipoInt']
 
-    #TODO: Verificar se o projeto já existe
-    #TODO: Verificar como será implementado
-    
-    os.system('roslaunch pepo_space pepo_space.launch pasta:={nomeStr}')  
+@app.route("/camera/is_busy", methods=['GET'])
+def get_camera_busy():
+    global global_camera_state
+    global global_scan_state
+    is_busy = False
+
+    if global_camera_state and global_scan_state:
+        is_busy = True
+
+    return jsonify(is_busy)
+
+
+@app.route('/camera/image', methods=['GET'])
+def get_camera_image():
+    global global_image_camera
+    return global_image_camera
+
+
+@app.route("/camera/force_kill", methods=['POST'])
+def camera_force_kill():
+    os.system('fuser -k /dev/video0')
+    return jsonify(True)
+
+
+@app.route("/camera/kill", methods=['POST'])
+def camera_kill():
+    global global_camera_state
+    global global_scan_state
+
+    if not global_camera_state and not global_scan_state:
+        camera_force_kill()
 
     return jsonify(True)
 
-@app.route("/project/delete", methods=['DELETE'])
-def deleteProject():
+
+@app.route("/camera/start", methods=['POST'])
+def camera_start():
+    global global_camera_state
+    global global_scan_state
+
+    if not global_camera_state and not global_scan_state:
+        os.system('roslaunch cv_camera calibrar_camera.launch')
+
+    return jsonify(global_scan_state)
+
+
+@app.route("/camera/stop", methods=['POST'])
+def camera_stop():
+    global global_camera_state
+    global global_image_camera
+    global global_scan_state
+
+    if not global_camera_state and not global_scan_state:
+        os.system('rosnode kill camera')
+        camera_force_kill()
+        global_image_camera = ''
+
+    return jsonify(True)
+
+
+@app.route("/camera/feedback", methods=['GET'])
+def get_feedback():
+    global global_feedback
+    return jsonify(global_feedback)
+
+
+@app.route("/date", methods=['GET'])
+def get_date():
+    process = subprocess.Popen('date', stdout=subprocess.PIPE)
+    out, err = process.communicate(timeout=2)
+
+    return jsonify(out)
+
+
+@app.route("/date", methods=['POST'])
+def post_date():
     data = request.get_json()
-    paramArquivo = data['arquivoStr']
-    paramNome = data['nomeStr']
-    paramTipo = data['tipo']   
+    param_date = data['dateStr']
+    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) +"' && sudo hwclock -w")
+
+    return jsonify(True)
+
+
+@app.route("/project/delete", methods=['POST'])
+def project_delete():
+    data = request.get_json()
+    param_arquivo = data['arquivoStr']
+    param_nome = data['nomeStr']
+    param_scan = data['scanStr']
+    param_tipo = data['tipo']
 
     try:
-        if paramTipo in projectTypes:
-            if paramNome and paramTipo and paramArquivo:
-                os.remove(os.path.join(projectListPath, paramTipo, paramNome, paramArquivo))
-            elif paramNome and paramTipo:
-                shutil.rmtree(os.path.join(projectListPath, paramTipo, paramNome))
+        if param_tipo in global_project_accepted_types:
+            project_path = os.path.join(global_project_root_path, param_tipo)
 
-        return make_response(jsonify({}), 204)
+            if param_nome and param_scan and param_arquivo:
+                os.remove(os.path.join(project_path, param_nome, param_scan, param_arquivo))
+            if param_nome and param_scan:
+                shutil.rmtree(os.path.join(project_path, param_nome, param_scan))
+            elif param_nome:
+                shutil.rmtree(os.path.join(project_path, param_nome))
     except:
-        msg = 'Não foi possível excluir o diretório: ' + paramTipo + '/' + paramNome
+        msg = f'Não foi possível excluir: {param_tipo}/{param_nome}/{param_scan}/{param_arquivo}'
         print(msg)
-        return make_response(jsonify(msg), 500)
+
+    return jsonify('ok')
+
 
 @app.route("/project/list", methods=['GET'])
-def getProjectList():
+def project_list():
     d = []
 
-    for folder in glob.iglob(os.path.join(projectListPath, '*/*'), recursive=False):
+    for folder in glob.iglob(os.path.join(global_project_root_path, '*/*'), recursive=False):
         try:
-            folderData = {}
-            folderData['nomeStr'] = os.path.basename(folder)
-            folderData['tipo'] = os.path.basename(os.path.dirname(folder))
-            folderData['criacaoDate'] = os.path.getctime(folder)
-            folderData['modificacaoDate'] = os.path.getmtime(folder)
+            folder_data = {
+                'nomeStr': os.path.basename(folder),
+                'tipo': os.path.basename(os.path.dirname(folder)),
+                'criacaoDate': os.path.getctime(folder),
+                'modificacaoDate': os.path.getmtime(folder)
+            }
 
-            if folderData['tipo'] in projectTypes:
-                d.append(folderData)
+            if folder_data['tipo'] in global_project_accepted_types:
+                d.append(folder_data)
         except:
             print('Não foi possível ler os dados do projeto: ' + folder)
 
     return jsonify(d)
 
-@app.route("/project/list/<projecttype>/<projectname>", methods=['GET'])
-def getProject(projecttype, projectname):
+
+@app.route("/project/<project_type>/<project_name>", methods=['GET'])
+def project(project_type, project_name):
     d = []
 
-    for root, dirs, files in os.walk(os.path.join(projectListPath, projecttype, projectname), topdown=False):
-       
-        for f in files:
-            try:
-                fileData = {}
-                fullpath = os.path.join(projectListPath, projecttype, projectname, f)
-                fileData['nomeStr'] = os.path.basename(fullpath)
-                fileData['criacaoDate'] = os.path.getctime(fullpath)
-                fileData['modificacaoDate'] = os.path.getmtime(fullpath)
+    for folder in os.scandir(os.path.join(global_project_root_path, project_type, project_name)):
+        for root, dirs, files in os.walk(folder):
+            scan = {
+                'nomeStr': folder.name,
+                'criacaoDate': os.path.getctime(folder.path),
+                'modificacaoDate': os.path.getmtime(folder.path)
+            }
 
-                if projecttype in projectTypes:
-                    d.append(fileData)
-            except:
-                print('Não foi possível ler os dados do arquivo: ' + f)
-          
+            scan_files = []
+
+            for f in files:
+                try:
+                    file_path = os.path.join(folder.path, f)
+                    file_data = {
+                        'nomeStr': os.path.basename(file_path),
+                        'criacaoDate': os.path.getctime(file_path),
+                        'modificacaoDate': os.path.getmtime(file_path)
+                    }
+
+                    if project_type in global_project_accepted_types:
+                        scan_files.append(file_data)
+                except:
+                    print('Não foi possível ler os dados do arquivo: ' + f)
+
+            scan['fileList'] = scan_files
+            d.append(scan)
 
     return jsonify(d)
 
-@app.route('/project/list/<projecttype>/<projectname>/<filename>', methods=['GET'])
-def downloadFile(projecttype, projectname, filename):
-    return send_file(os.path.join(projectListPath, projecttype, projectname,filename) , as_attachment=True)
+
+@app.route('/project/<projecttype>/<projectname>/<scan>/<filename>', methods=['GET'])
+def project_download_file(projecttype, projectname, scan, filename):
+    return send_file(os.path.join(global_project_root_path, projecttype, projectname, scan, filename), as_attachment=True)
+
+
+@app.route("/project/acquisition", methods=['POST'])
+def project_new():
+    global global_feedback
+    data = request.get_json()
+    nome_str = data['nomeStr']
+    tipo_int = data['tipoInt']
+
+    camera_stop()
+
+    if tipo_int == 0:
+        subprocess.Popen([f'roslaunch pepo_space pepo_space.launch pasta:={nome_str}'], shell=True)
+    else:
+        subprocess.Popen([f'roslaunch pepo_obj pepo_obj.launch pasta:={nome_str}'], shell=True)
+
+    time.sleep(5)
+    return jsonify(True)
+
 
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify(time.time())
 
+
 # Ros
 @app.route('/ros/status', methods=['GET'])
-def rosStatus():
+def ros_status():
     data = {
         'is_ros_connected_bool': ros.is_connected,
-        'distro_str': ros.get_param('rosdistro').rstrip().capitalize(),
-        'version_str': ros.get_param('rosversion').rstrip()
+        'distro_str': ros.get_param('rosdistro', callback=None).rstrip().capitalize(),
+        'version_str': ros.get_param('rosversion', callback=None).rstrip()
     }
 
     return jsonify(data)
 
-@app.route('/ros/getParam/<paramname>', methods=['GET'])
-def rosGetParam(paramname):
-    return jsonify(ros.get_param(paramname))     
 
-@app.route('/ros/setParam', methods=['POST'])
-def rosSetParam():  
+@app.route('/ros/get_param/<param_name>', methods=['GET'])
+def ros_get_param(param_name):
+    value = ros.get_param(param_name, callback=None)
+    return jsonify(value)
+
+
+@app.route('/ros/set_param', methods=['POST'])
+def ros_set_param():
     data = request.get_json()
     param = data['param']
     value = data['value']
@@ -133,65 +253,86 @@ def rosSetParam():
 
     # X=1(desligado) ou X=3(ligado)
     if param == 'exposure_auto':
-        
-        commandValue = 1
+
+        command_value = 1
 
         if value == True:
-            commandValue = 3
+            command_value = 3
 
-        os.system('v4l2-ctl --set-ctrl=exposure_auto=' + str(commandValue))
+        os.system('v4l2-ctl --set-ctrl=exposure_auto=' + str(command_value))
 
     # Range 0 < X < 2500
-    elif param == 'exposure_absolute':        
-        if value >= 0 and value <= 2500:
+    elif param == 'exposure_absolute':
+        if 0 <= value <= 2500:
             os.system('v4l2-ctl --set-ctrl=exposure_absolute=' + str(value))
 
     # Range 0 < X < 200
-    elif param == 'brightness':        
-        if value >= 0 and value <= 200:
-            os.system('v4l2-ctl --set-ctrl=brightness=' + str(value))        
+    elif param == 'brightness':
+        if 0 <= value <= 200:
+            os.system('v4l2-ctl --set-ctrl=brightness=' + str(value))
 
-    # Range 50 < X < 200
-    elif param == 'saturation':        
-        if value >= 50 and value <= 200:
+            # Range 50 < X < 200
+    elif param == 'saturation':
+        if 50 <= value <= 200:
             os.system('v4l2-ctl --set-ctrl=saturation=' + str(value))
 
     # Undefined
-    elif param == 'contrast':        
-            os.system('v4l2-ctl --set-ctrl=contrast=' + str(value))        
+    elif param == 'contrast':
+        os.system('v4l2-ctl --set-ctrl=contrast=' + str(value))
 
-    # X=0(desligado) ou X=1(ligado)
+        # X=0(desligado) ou X=1(ligado)
     elif param == 'white_balance_temperature_auto':
-        
-        commandValue = 0
+
+        command_value = 0
 
         if value == True:
-            commandValue = 1
+            command_value = 1
 
-        os.system('v4l2-ctl --set-ctrl=white_balance_temperature_auto=' + str(commandValue))        
+        os.system('v4l2-ctl --set-ctrl=white_balance_temperature_auto=' + str(command_value))
 
-    # Range 2800 < X < 6000
-    elif param == 'white_balance_temperature':        
-        if value >= 50 and value <= 200:
-            os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))          
+        # Range 2800 < X < 6000
+    elif param == 'white_balance_temperature':
+        if 50 <= value <= 200:
+            os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))
 
     return jsonify(value)
 
-def setImageCamera(msg):
-    global imageCamera 
-    imageTopic.unsubscribe()
-    imageCamera = msg['data']
 
-@app.route('/camera', methods=['GET'])
-def getCamera():
-    global imageCamera 
-    rosCamera()
-    
-    return imageCamera
+def camera_image_callback(msg):
+    global global_image_camera
+    global_image_camera = msg['data']
 
-def rosCamera():
-    if ros.is_connected:
-        imageTopic.subscribe(setImageCamera)
+
+def camera_state_callback(msg):
+    global global_camera_state
+    global_camera_state = msg['data']
+
+
+def feedback_callback(msg):
+    global global_feedback
+    global_feedback = msg['data']
+
+
+def scan_state_callback(msg):
+    global global_scan_state
+    global_scan_state = msg['data']
+
+
+def init_subscribers():
+    global global_camera_state_topic
+    global global_feedback_topic
+    global global_image_topic
+    global global_scan_state_topic
+
+    global_image_topic.subscribe(callback=camera_image_callback)
+    global_camera_state_topic.subscribe(callback=camera_state_callback)
+    global_feedback_topic.subscribe(callback=feedback_callback)
+    global_scan_state_topic.subscribe(callback=scan_state_callback)
+
+
+init_subscribers()
+
 
 if __name__ == '__main__':
-   app.run()  
+    app.run()
+
