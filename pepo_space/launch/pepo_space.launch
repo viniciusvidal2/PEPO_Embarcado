@@ -15,7 +15,7 @@
 </node>
 
 <!--Lancar no de comunicacao para enviar ao desktop-->
-<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">
-</node>
+<!--<node name="encaminha_dados_desktop" pkg="communication" type="encaminha_dados_desktop" output="screen">-->
+<!--</node>-->
 
 </launch>
