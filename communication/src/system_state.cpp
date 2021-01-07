@@ -1,5 +1,4 @@
 #include "ros/ros.h"
-#include "communication/state.h"
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/String.h"
@@ -17,21 +16,6 @@ void feedbackCallback(const std_msgs::Float32ConstPtr& msg){
 
 }
 
-bool switch_state(communication::state::Request &req, communication::state::Response &res){
-    // Avaliando mudanca de sistema dita na entrada
-    switch(req.state){
-    case 0:
-//        state_cam_global = false;
-        res.result = 1;
-    case 1:
-//        state_cam_global = true;
-        res.result = 1;
-    default:
-        res.result = 0;
-    }
-    return true;
-}
-
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "system_state");
@@ -40,7 +24,6 @@ int main(int argc, char **argv)
 
     ros::Subscriber    sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback);
     ros::Subscriber    sub_scn = nh.subscribe("/feedback_scan", 10, feedbackCallback);
-    ros::ServiceServer service = nh.advertiseService("switch_state", switch_state);
     ros::Publisher     pub_cam = nh.advertise<std_msgs::Bool>("camera_state", 10);
     ros::Publisher     pub_scn = nh.advertise<std_msgs::Bool>("scan_state"  , 10);
 
