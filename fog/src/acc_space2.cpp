@@ -285,6 +285,8 @@ int main(int argc, char **argv)
   std_msgs::Float32 msg_feedback;
   msg_feedback.data = 0;
   msg_pub.publish(msg_feedback);
+  msg_pub.publish(msg_feedback);
+  msg_pub.publish(msg_feedback);
 
   // Iniciar subscritor da nuvem sincronizado com odometria
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(nh, "/cloud_space", 100);
