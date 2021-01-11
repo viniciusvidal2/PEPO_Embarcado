@@ -81,7 +81,9 @@ vector<Quaternion<float>> quaternions_panoramica;
 int ntilts;
 // Ponteiro de cv_bridge para a imagem
 cv_bridge::CvImagePtr image_ptr;
-
+// Imagem com menor blur, para a maior covariancia encontrada no escaneamento
+Mat min_blur_im, lap, lap_gray;
+float max_var = 0;
 // Tempos para artigo
 vector<float > tempos_entre_aquisicoes, tempos_colorir, tempos_salvar, tempos_filtrar;
 vector<size_t> pontos_nuvem_inicial, pontos_filtro_colorir;
@@ -174,9 +176,23 @@ void savePointFiles(){
 /// Callback da camera
 ///
 void camCallback(const sensor_msgs::ImageConstPtr& msg){
-    // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
-    if(aquisitar_imagem_imu)
+    // Aqui ja temos a imagem em ponteiro de opencv, verificar por blur
+    if(aquisitar_imagem_imu){
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+        if(min_blur_im.cols < 10)
+            image_ptr->image.copyTo(min_blur_im);
+        // Converte escala de cinza
+        cvtColor(image_ptr->image, lap_gray, COLOR_BGR2GRAY);
+        // Variancia
+        Laplacian(lap_gray, lap, CV_16SC1, 3, 1, 0, cv::BORDER_DEFAULT);
+        Scalar m, s;
+        meanStdDev(lap, m, s, Mat());
+        // Checar contra maior variancia
+        if(s[0] > max_var){
+            image_ptr->image.copyTo(min_blur_im);
+            max_var = s[0];
+        }
+    }
 }
 
 /// Callback servos
@@ -251,7 +267,7 @@ int main(int argc, char **argv)
             qualidade = 15;
             break;
         case 2:
-            qualidade = 25;
+            qualidade = 30;
             break;
         case 3:
             qualidade = 100;
@@ -390,8 +406,8 @@ int main(int argc, char **argv)
 //                sleep(2);
                 current_roll = 0;
             }
-            Mat imagem_temp;
-            image_ptr->image.copyTo(imagem_temp);
+//            Mat imagem_temp;
+//            image_ptr->image.copyTo(imagem_temp);
             // Salvar quaternion para criacao da imagem 360 final
             Matrix3f R360 = pc->euler2matrix(current_roll, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
@@ -405,8 +421,12 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
             else
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
-            pi->saveImage(imagem_temp, nome_imagem_atual);
+            pi->saveImage(min_blur_im, nome_imagem_atual);
+            min_blur_im.release(); max_var = 0; // Liberando a imagem para a proxima captura
             tempos_salvar.push_back((ros::Time::now() - tempo_s).toSec());
+
+            // Vamos mudar de waypoints, segurar a aquisicao para trabalhar a nuvem antes de mudar
+            mudando_vista = true;
 
             // Transformando para o frame da camera
             pc->transformToCameraFrame(parcial);
@@ -453,9 +473,7 @@ int main(int argc, char **argv)
             od_pub.publish(odom_cloud_out);
             cl_pub.publish(msg_out);
             // Zerando parcial para proxima vista em pan e vetor de imagens
-            parcial_color->clear();
-            // Vamos mudar de waypoints, segurar a aquisicao
-            mudando_vista = true;
+            parcial_color->clear();            
 
             tempos_entre_aquisicoes.push_back((ros::Time::now() - tempo_nuvem).toSec());
             tempo_nuvem = ros::Time::now();
