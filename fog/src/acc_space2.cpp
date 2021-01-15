@@ -283,10 +283,12 @@ int main(int argc, char **argv)
   // Publicador de quanto esta sendo
   msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
   std_msgs::Float32 msg_feedback;
-  msg_feedback.data = 0;
-  msg_pub.publish(msg_feedback);
-  msg_pub.publish(msg_feedback);
-  msg_pub.publish(msg_feedback);
+  msg_feedback.data = 1.0; // Para a camera liberar no aplicativo
+  ros::Rate r(2);
+  for(int i=0; i<5; i++){
+      msg_pub.publish(msg_feedback);
+      r.sleep();
+  }
 
   // Iniciar subscritor da nuvem sincronizado com odometria
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(nh, "/cloud_space", 100);
