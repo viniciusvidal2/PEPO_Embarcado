@@ -3,7 +3,7 @@ project(communication)
 
 add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs image_transport pcl_ros image_geometry tf actionlib_msgs message_filters pluginlib rosconsole roslib compressed_image_transport)
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge message_generation sensor_msgs std_msgs image_transport pcl_ros image_geometry tf actionlib_msgs message_filters pluginlib rosconsole roslib compressed_image_transport)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP REQUIRED)
 if(OPENMP_FOUND)
@@ -17,14 +17,14 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${PCL_INCLUDE_DIRS})
 include_directories(${OpenMP_INCLUDE_DIRS})
 
-#add_service_files(
-#  FILES
-#  state.srv
-#)
+add_service_files(
+  FILES
+  state.srv
+)
 
 generate_messages(
-#  DEPENDENCIES
-#  std_msgs
+  DEPENDENCIES
+  std_msgs
 )
 
 catkin_package(

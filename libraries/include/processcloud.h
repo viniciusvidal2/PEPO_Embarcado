@@ -30,6 +30,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/statistical_outlier_removal.h>
@@ -75,7 +76,6 @@ public:
   virtual ~ProcessCloud();
   void transformToCameraFrame(PointCloud<PointT>::Ptr nuvem);
   void transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem);
-  void transformCloudAndCamServoAngles(PointCloud<PointT>::Ptr cloud, float pan, float tilt, Vector3f &C, Quaternion<float> &q);
   void colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale);
 
   void saveCloud(PointCloud<PointT>::Ptr nuvem, string nome);
@@ -86,14 +86,18 @@ public:
   void cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud);
   Vector2f getFocuses(int scale);
 
+  // Entradas apos colocar a fog embarcada
+  void blueprint(PointCloud<PointT>::Ptr cloud_in, float sa, float sr, Mat &bp);
+  string escreve_linha_sfm(string nome, Matrix3f r, Vector3f t);
+  void compileFinalSFM(vector<string> linhas);
+  Vector3f gettCam();
+
 private:
 
   /// Variaveis
   std::string pasta;     // Nome da pasta a salvar as coisas
   Matrix3f K1;
   MatrixXf Rt1;
-  Matrix3f K4;
-  MatrixXf Rt4;
 
 };
 
