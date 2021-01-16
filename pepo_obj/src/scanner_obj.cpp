@@ -69,14 +69,16 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         ros::Rate r2(1);
         int tempo_total = 5; // [s]
         std_msgs::Float32 msg_feedback;
+
+        msg_feedback.data = 1;
+        feedback_pub.publish(msg_feedback);
+        r2.sleep();
         for(int i=0; i<tempo_total; i++){
             r2.sleep();
             ros::spinOnce();
             msg_feedback.data = 100*float(i+1)/float(tempo_total);
             feedback_pub.publish(msg_feedback);
         }
-        msg_feedback.data = 1;
-        feedback_pub.publish(msg_feedback);
         aquisitar_imagem = false;
         string nome_imagem_atual;
         if(cont_aquisicao + 1 < 10)
