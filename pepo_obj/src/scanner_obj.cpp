@@ -8,6 +8,8 @@
 
 #include <pcl/filters/passthrough.h>
 
+#include <std_msgs/Float32.h>
+
 #include "../../libraries/include/processcloud.h"
 #include "../../libraries/include/processimages.h"
 #include "pepo_obj/comandoObj.h"
@@ -32,8 +34,8 @@ int contador_nuvem = 0, N = 400; // Quantas nuvens aquisitar em cada parcial
 ProcessImages *pi;
 // Contador de aquisicoes - usa tambem para salvar no lugar certo
 int cont_aquisicao = 0;
-// Publisher para a nuvem e imagem
-ros::Publisher im_pub;
+// Publisher para feedback
+ros::Publisher feedback_pub;
 
 string pasta;
 
@@ -54,23 +56,27 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     // Aqui ja temos a imagem em ponteiro de opencv, depois de pegar uma desabilitar
     if(aquisitar_imagem)
         image_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-    // Publicando a imagem para ver o no de comunicacao com o desktop
-    im_pub.publish(*msg);
 }
 
 /// Servico para controle de aquisicao
 ///
-bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
+bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
     if(req.comando == 1){ // Havera mais uma nova aquisicao
         aquisitando = true;
         aquisitar_imagem = true;
         res.result = 1;
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
-        ros::Rate r2(2);
-        for(int i=0; i<8; i++){
+        ros::Rate r2(1);
+        int tempo_total = 5; // [s]
+        std_msgs::Float32 msg_feedback;
+        for(int i=0; i<tempo_total; i++){
             r2.sleep();
             ros::spinOnce();
+            msg_feedback.data = 100*float(i+1)/float(tempo_total);
+            feedback_pub.publish(msg_feedback);
         }
+        msg_feedback.data = 1;
+        feedback_pub.publish(msg_feedback);
         aquisitar_imagem = false;
         string nome_imagem_atual;
         if(cont_aquisicao + 1 < 10)
@@ -97,51 +103,62 @@ bool comando_proceder(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::
 ///
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "scanner_obj");
-  ros::NodeHandle nh;
-  ros::NodeHandle n_("~");
-  ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
+    ros::init(argc, argv, "scanner_obj");
+    ros::NodeHandle nh;
+    ros::NodeHandle n_("~");
+    ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
 
-  // Pegando o nome da pasta por parametro
-  string nome_param;
-  n_.param("pasta", nome_param, string("Dados_PEPO"));
+    // Pegando o nome da pasta por parametro
+    string nome_param;
+    n_.param("pasta", nome_param, string("Dados_PEPO"));
 
-  // Apagando pasta atual e recriando a mesma na area de trabalho
-  char* home;
-  home = getenv("HOME");
-  // Checando se ha a pasta spaces, senao criar
-  pasta = string(home)+"/Desktop/objetos/";
-  struct stat buffer;
-  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
-      mkdir(pasta.c_str(), 0777);
-  // Criando pasta mae
-  pasta = pasta + nome_param.c_str();
-  if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
-      mkdir(pasta.c_str(), 0777);
-  // Criando pastas filhas
-  pasta = create_folder(pasta + "/scan") + "/";
+    // Apagando pasta atual e recriando a mesma na area de trabalho
+    char* home;
+    home = getenv("HOME");
+    // Checando se ha a pasta spaces, senao criar
+    pasta = string(home)+"/Desktop/objetos/";
+    struct stat buffer;
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pasta mae
+    pasta = pasta + nome_param.c_str();
+    if(stat(pasta.c_str(), &buffer)) // Se nao existe a pasta
+        mkdir(pasta.c_str(), 0777);
+    // Criando pastas filhas
+    pasta = create_folder(pasta + "/scan") + "/";
 
-  // Inicia classe de processo de nuvens
-  pi = new ProcessImages(pasta);
+    // Inicia classe de processo de nuvens
+    pi = new ProcessImages(pasta);
 
-  // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
-  ros::ServiceServer procedimento = nh.advertiseService("/proceder_obj", comando_proceder);
+    // Publisher do feedback pra mostrar que tem procedimento
+    feedback_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
+    std_msgs::Float32 msg;
+    msg.data = 1;
+    ros::Rate r5(2);
+    for(int i=0; i<5; i++){
+        feedback_pub.publish(msg);
+        r5.sleep();
+    }
 
-  // Subscribers dessincronizados para mensagens de laser, imagem e motores
-  ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback  );
+    // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
+    ros::ServiceServer procedimento = nh.advertiseService("/capturar_obj", capturar_obj);
 
-  ROS_INFO("Comecando a aquisicao ...");
+    // Subscribers dessincronizados para mensagens de laser, imagem e motores
+    ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw", 10, camCallback  );
 
-  ros::Rate r(10);
-  while(ros::ok()){
-      r.sleep();
-      ros::spinOnce();
+    ROS_INFO("Comecando a aquisicao ...");
 
-      if(fim_processo){
-        ros::shutdown();
-        break;
-      }
-  }
+    ros::Rate r(10);
+    while(ros::ok()){
+        r.sleep();
+        ros::spinOnce();
 
-  return 0;
+        if(fim_processo){
+            system("rosnode kill camera scanner_obj");
+            ros::shutdown();
+            break;
+        }
+    }
+
+    return 0;
 }

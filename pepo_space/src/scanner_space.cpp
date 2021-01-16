@@ -70,10 +70,12 @@ int main(int argc, char **argv)
     // Publicadores
     ros::Publisher msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
     std_msgs::Float32 msg;
-    msg.data = 0;
-    msg_pub.publish(msg);
-    msg_pub.publish(msg);
-    msg_pub.publish(msg);
+    msg.data = 1;
+    ros::Rate r5(2);
+    for(int i=0; i<5; i++){
+        msg_pub.publish(msg);
+        r5.sleep();
+    }
 
     // Pegando os parametros
     string nome_param;
