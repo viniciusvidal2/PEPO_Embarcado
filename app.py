@@ -14,7 +14,8 @@ ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
 ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
 ros.run()
 
-global_project_root_path = '/home/pepo/Desktop/'
+global_aquisition_type = 0
+global_project_root_path = '/home/cap/Desktop/'
 global_project_accepted_types = ['ambientes', 'objetos']
 global_feedback = ''
 global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
@@ -37,18 +38,40 @@ def get_default_route():
 
 @app.route("/acquisition/cancel", methods=['POST'])
 def post_acquisition_cancel():
-    node_kill_list = [
-        'camera',
-        'imu_node',
-        'livox_lidar_publisher',
-        'multi_port_pepo scanner_space',
-        'acc_space_node scanner_obj'
-    ]
+    global global_camera_state
+    global global_scan_state
+    global global_feedback
+    global global_image_camera
 
-    for node in node_kill_list:
-        os.system('rosnode kill ' + node)
+    os.system('rosnode kill camera')
+    os.system('rosnode kill imu_node')
+    os.system('rosnode kill livox_lidar_publisher')
+    os.system('rosnode kill multi_port_pepo')
+    os.system('rosnode kill scanner_space')
+    os.system('rosnode kill acc_space_node')
+    os.system('rosnode kill scanner_obj')
+
+    camera_force_kill()
 
     return jsonify('ok')
+
+
+@app.route("/acquisition/capture_obj", methods=['POST'])
+def post_acquisition_capture_obj():
+    os.system('rosservice call /capturar_obj 1')
+    return jsonify(True)
+
+
+@app.route("/acquisition/finish_capture_obj", methods=['POST'])
+def post_acquisition_finish_capture_obj():
+    os.system('rosservice call /capturar_obj 2')
+    return jsonify(True)
+
+
+@app.route("/acquisition/type", methods=['GET'])
+def get_acquisition_type():
+    global global_aquisition_type
+    return jsonify(global_aquisition_type)
 
 
 @app.route("/camera/is_busy", methods=['GET'])
@@ -71,18 +94,24 @@ def get_camera_image():
 
 @app.route("/camera/force_kill", methods=['POST'])
 def camera_force_kill():
+    global global_camera_state
+    global global_scan_state
+    global global_feedback
+    global global_image_camera
+
     os.system('fuser -k /dev/video0')
+
+    global_camera_state = False
+    global_scan_state = False
+    global_feedback = 0.0
+    global_image_camera = ''
+
     return jsonify(True)
 
 
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
-    global global_camera_state
-    global global_scan_state
-
-    if not global_camera_state and not global_scan_state:
-        camera_force_kill()
-
+    camera_force_kill()
     return jsonify(True)
 
 
@@ -100,13 +129,13 @@ def camera_start():
 @app.route("/camera/stop", methods=['POST'])
 def camera_stop():
     global global_camera_state
-    global global_image_camera
     global global_scan_state
+    global global_feedback
+    global global_image_camera
 
     if not global_camera_state and not global_scan_state:
         os.system('rosnode kill camera')
         camera_force_kill()
-        global_image_camera = ''
 
     return jsonify(True)
 
@@ -222,6 +251,7 @@ def project_download_file(projecttype, projectname, scan, filename):
 @app.route("/project/acquisition", methods=['POST'])
 def project_new():
     global global_feedback
+    global global_aquisition_type
     data = request.get_json()
     nome_str = data['nomeStr']
     tipo_int = data['tipoInt']
@@ -233,7 +263,7 @@ def project_new():
     else:
         subprocess.Popen([f'roslaunch pepo_obj pepo_obj.launch pasta:={nome_str}'], shell=True)
 
-    time.sleep(5)
+    global_aquisition_type = tipo_int
     return jsonify(True)
 
 
@@ -300,7 +330,7 @@ def ros_set_param():
     elif param == 'white_balance_temperature':
         roslibpy.Param(ros, 'white_balance_temperature_auto').get(callback=None, timeout=30)
 
-        if 50 <= value <= 200 and is_auto == 0:
+        if 50 <= value <= 200:
             os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))
 
     return jsonify(value)
