@@ -15,7 +15,7 @@ ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
 ros.run()
 
 global_aquisition_type = 0
-global_project_root_path = '/home/cap/Desktop/'
+global_project_root_path = '/home/pepo/Desktop/'
 global_project_accepted_types = ['ambientes', 'objetos']
 global_feedback = ''
 global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
