@@ -275,10 +275,19 @@ def ping():
 # Ros
 @app.route('/ros/status', methods=['GET'])
 def ros_status():
+    st = os.statvfs('/')
+    free = st.f_bavail * st.f_frsize
+    total = st.f_blocks * st.f_frsize
+    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+
     data = {
         'is_ros_connected_bool': ros.is_connected,
         'distro_str': roslibpy.Param(ros, 'rosdistro').get(callback=None, timeout=30).rstrip().capitalize(),
-        'version_str': roslibpy.Param(ros, 'rosversion').get(callback=None, timeout=30).rstrip()
+        'version_str': roslibpy.Param(ros, 'rosversion').get(callback=None, timeout=30).rstrip(),
+        'free': round(free, 2),
+        'total': round(total, 2),
+        'used': round(used, 2),
+        'used_percent': round(100 * used / total, 2)
     }
 
     return jsonify(data)
