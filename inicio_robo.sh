@@ -22,6 +22,8 @@ v4l2-ctl --set-ctrl=brightness=230
 v4l2-ctl --set-ctrl=backlight_compensation=0
 v4l2-ctl --set-ctrl=saturation=250
 v4l2-ctl --set-ctrl=white_balance_temperature=4000
+v4l2-ctl --set-ctrl=focus_auto=0
+v4l2-ctl --set-ctrl=sharpness=250
 
 # Importar dependencias de ROS - workspaces
 source /opt/ros/melodic/setup.bash
