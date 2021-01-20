@@ -35,7 +35,7 @@ cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 150; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 200; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 ProcessImages *pi;
@@ -95,7 +95,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
         // Falar a porcentagem da aquisicao para o usuario
-        if(contador_nuvem % 30 == 0){
+        if(contador_nuvem % 40 == 0){
             std_msgs::Float32 msg_feedback;
             msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
             feedback_pub.publish(msg_feedback);
@@ -126,7 +126,7 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 15); // Z metros de profundidade
+            pass.setFilterLimits(0, 60); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");

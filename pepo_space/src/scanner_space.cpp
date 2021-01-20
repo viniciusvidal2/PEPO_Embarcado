@@ -234,21 +234,6 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
-    ///// ENCONTRANDO PU PARA A MAQUINA JETSON
-    ///
-    int a=0;
-    ros::Time tem;
-    vector<uint64_t> temps(500);
-    for(int k=1; k<temps.size(); k++){
-      tem = ros::Time::now();
-      for(int i=0; i<10; i++)
-        a = 10+10;
-      temps[k] = (ros::Time::now() - tem).toNSec();
-    }
-    float avg = float(accumulate(temps.begin(), temps.end(), 0))/float(temps.size());
-    ROS_WARN("TEMPO PU DO EDGE: %.0f", avg);
-    cout << endl << endl << endl;
-
     // Pegando os parametros
     string nome_param;
     int step = 30; // [DEG]
@@ -302,7 +287,7 @@ int main(int argc, char **argv)
     ///
     ros::Time tini = ros::Time::now();
     // Pontos de observacao em tilt
-    vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
+    vector<float> tilts_camera_deg {50.1, deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt}; // Adicionando aqui 50.1 referente a 2850, olhando pra baixo bastante
     ntilts = tilts_camera_deg.size();
     // Pontos de observacao em pan
     int vistas_pan = int(final_scanner_deg_pan - inicio_scanner_deg_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range

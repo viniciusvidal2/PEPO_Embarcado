@@ -2,10 +2,14 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
-    // Matriz intrinseca com imagem em Full HD
-    K1 << 1427.1  ,   -0.063, 987.9,
-             0.041, 1449.4  , 579.4,
-             0    ,    0    ,   1  ;
+//    // Matriz intrinseca com imagem em Full HD
+//    K1 << 1427.1  ,   -0.063, 987.9,
+//             0.041, 1449.4  , 579.4,
+//             0    ,    0    ,   1  ;
+    // Matriz intrinseca com imagem em HD
+    K1 << 951.4  ,   -0.063, 658.6,
+             0.041, 966.2  , 386.6,
+             0    ,    0    ,   1 ;
     // Matriz intrinseca com imagem em resolucao simplificada por 4
     K4 << 375.29  ,   0.0472, 245.18,
             0.0157, 374.50  , 142.36,
