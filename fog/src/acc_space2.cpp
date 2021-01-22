@@ -142,7 +142,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
   // Fala a porcentagem do total que ja resolvemos
   std_msgs::Float32 msg_feedback;
   msg_feedback.data = 100.0*float(cont_aquisicao)/float(msg_angle->pose.pose.orientation.w);
-  msg_pub.publish(msg_feedback);
+  if(msg_feedback.data < 100.0)
+      msg_pub.publish(msg_feedback);
 
 //  if(contador_nuvens == ntilts){
 
