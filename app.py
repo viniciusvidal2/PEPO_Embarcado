@@ -26,7 +26,6 @@ global_camera_state_topic = roslibpy.Topic(ros, '/camera_state', 'std_msgs/Bool'
 global_scan_state = False
 global_scan_state_topic = roslibpy.Topic(ros, '/scan_state', 'std_msgs/Bool')
 
-
 app = Flask(__name__)
 cors = CORS(app)
 
@@ -58,13 +57,16 @@ def post_acquisition_cancel():
 
 @app.route("/acquisition/capture_obj", methods=['POST'])
 def post_acquisition_capture_obj():
-    os.system('rosservice call /capturar_obj 1')
+    process = subprocess.Popen('rosservice call /capturar_obj 1', shell=True, stdout=subprocess.PIPE)
+    process.wait()
     return jsonify(True)
 
 
 @app.route("/acquisition/finish_capture_obj", methods=['POST'])
 def post_acquisition_finish_capture_obj():
-    os.system('rosservice call /capturar_obj 2')
+    process = subprocess.Popen('rosservice call /capturar_obj 2', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    camera_stop()
     return jsonify(True)
 
 
@@ -99,7 +101,8 @@ def camera_force_kill():
     global global_feedback
     global global_image_camera
 
-    os.system('fuser -k /dev/video0')
+    process = subprocess.Popen('fuser -k /dev/video0', shell=True, stdout=subprocess.PIPE)
+    process.wait()
 
     global_camera_state = False
     global_scan_state = False
@@ -111,7 +114,10 @@ def camera_force_kill():
 
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
-    camera_force_kill()
+    global global_image_camera
+    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    global_image_camera = ''
     return jsonify(True)
 
 
@@ -121,7 +127,8 @@ def camera_start():
     global global_scan_state
 
     if not global_camera_state and not global_scan_state:
-        os.system('roslaunch cv_camera calibrar_camera.launch')
+        process = subprocess.Popen('roslaunch cv_camera calibrar_camera.launch', shell=True, stdout=subprocess.PIPE)
+        process.wait()
 
     return jsonify(global_scan_state)
 
@@ -130,12 +137,14 @@ def camera_start():
 def camera_stop():
     global global_camera_state
     global global_scan_state
-    global global_feedback
-    global global_image_camera
+
+    print('global_camera_state')
+    print(global_camera_state)
+    print('global_scan_state')
+    print(global_scan_state)
 
     if not global_camera_state and not global_scan_state:
-        os.system('rosnode kill camera')
-        camera_force_kill()
+        camera_kill()
 
     return jsonify(True)
 
@@ -158,7 +167,7 @@ def get_date():
 def post_date():
     data = request.get_json()
     param_date = data['dateStr']
-    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) +"' && sudo hwclock -w")
+    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) + "' && sudo hwclock -w")
 
     return jsonify(True)
 
@@ -245,7 +254,8 @@ def project(project_type, project_name):
 
 @app.route('/project/<projecttype>/<projectname>/<scan>/<filename>', methods=['GET'])
 def project_download_file(projecttype, projectname, scan, filename):
-    return send_file(os.path.join(global_project_root_path, projecttype, projectname, scan, filename), as_attachment=True)
+    return send_file(os.path.join(global_project_root_path, projecttype, projectname, scan, filename),
+                     as_attachment=True)
 
 
 @app.route("/project/acquisition", methods=['POST'])
@@ -378,7 +388,6 @@ def init_subscribers():
 
 
 init_subscribers()
-
 
 if __name__ == '__main__':
     app.run()
