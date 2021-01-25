@@ -89,7 +89,11 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
 
         cont_aquisicao++;
 
+        sleep(5);
         msg_feedback.data = 100;
+        feedback_pub.publish(msg_feedback);
+        sleep(3);
+        msg_feedback.data = 1;
         feedback_pub.publish(msg_feedback);
 
     } else if (req.comando == 2) { // Acabamos de aquisitar
