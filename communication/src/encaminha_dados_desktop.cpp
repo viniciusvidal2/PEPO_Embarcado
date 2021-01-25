@@ -50,7 +50,7 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "encaminha_dados_desktop");
+    ros::init(argc, argv, "imagem_lr_app");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
 
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     im_pub = it.advertise("/image_user", 10);
     
     // Subscriber para topicos de imagem e de nuvem
-    ros::Subscriber im_sub = nh.subscribe("/image_temp", 10, imagemCallback);
+    ros::Subscriber im_sub = nh.subscribe("/camera/image_raw", 10, imagemCallback);
 
     while(ros::ok())
         ros::spinOnce();

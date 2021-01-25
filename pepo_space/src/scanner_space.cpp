@@ -142,7 +142,7 @@ int main(int argc, char **argv)
         if(indice_posicao == maximo){
             msg.data = 100;
             msg_pub.publish(msg);
-            system("rosnode kill camera scanner_space");
+            system("rosnode kill camera imagem_lr_app scanner_space");
             ros::shutdown();
             break;
         }

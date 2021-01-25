@@ -73,12 +73,6 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         msg_feedback.data = 1;
         feedback_pub.publish(msg_feedback);
         r2.sleep();
-        for(int i=0; i<tempo_total; i++){
-            r2.sleep();
-            ros::spinOnce();
-            msg_feedback.data = 100*float(i+1)/float(tempo_total);
-            feedback_pub.publish(msg_feedback);
-        }
         aquisitar_imagem = false;
         string nome_imagem_atual;
         if(cont_aquisicao + 1 < 10)
@@ -90,6 +84,14 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         pi->saveImage(image_ptr->image, nome_imagem_atual);
 
         cont_aquisicao++;
+
+        for(int i=0; i<tempo_total; i++){
+            r2.sleep();
+            ros::spinOnce();
+            msg_feedback.data = 100*float(i+1)/float(tempo_total);
+            feedback_pub.publish(msg_feedback);
+        }
+
     } else if (req.comando == 2) { // Acabamos de aquisitar
         fim_processo = true;
         res.result = 1;
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
         ros::spinOnce();
 
         if(fim_processo){
-            system("rosnode kill camera scanner_obj");
+            system("rosnode kill camera imagem_lr_app scanner_obj");
             ros::shutdown();
             break;
         }

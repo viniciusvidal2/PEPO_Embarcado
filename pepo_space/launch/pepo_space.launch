@@ -9,6 +9,10 @@
     <param name="rescale_camera_info"      value="true"/>
 </node>
 
+<!--Lancar no de republicacao da imagem em menor resolucao-->
+<node name="imagem_lr_app" pkg="communication" type="encaminha_dados_desktop" output="screen">
+</node>
+
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
