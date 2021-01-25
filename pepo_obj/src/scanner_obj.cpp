@@ -94,12 +94,6 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         *parcial += *cloud;
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
-        // Falar a porcentagem da aquisicao para o usuario
-        if(contador_nuvem % 40 == 0){
-            std_msgs::Float32 msg_feedback;
-            msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
-            feedback_pub.publish(msg_feedback);
-        }
         // Se total acumulado, travar o resto e trabalhar
         if(contador_nuvem == N){
             cont_aquisicao++;
@@ -148,11 +142,16 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             contador_nuvem = 0;
             min_blur_im.release(); max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
-            std_msgs::Float32 msg_feedback;
-            msg_feedback.data = 100.0;
-            feedback_pub.publish(msg_feedback);
+
         } else {
             contador_nuvem++;
+        }
+
+        // Falar a porcentagem da aquisicao para o usuario
+        if(contador_nuvem % 40 == 0){
+            std_msgs::Float32 msg_feedback;
+            msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
+            feedback_pub.publish(msg_feedback);
         }
     }
 }
@@ -234,7 +233,7 @@ int main(int argc, char **argv)
         ros::spinOnce();
 
         if(fim_processo){
-            system("rosnode kill camera livox_lidar_publisher scanner_obj");
+            system("rosnode kill camera livox_lidar_publisher imagem_lr_app scanner_obj");
             ros::shutdown();
             break;
         }

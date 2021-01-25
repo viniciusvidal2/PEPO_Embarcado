@@ -494,7 +494,7 @@ int main(int argc, char **argv)
                 if(switch_state_srv.call(srv_msg))
                     ROS_INFO("Terminamos a aquisicao corretamente.");
                 // Mata todos os nos que estao rodando
-                system("rosnode kill camera imu_node livox_lidar_publisher multi_port_pepo scanner_space");
+                system("rosnode kill camera imu_node livox_lidar_publisher imagem_lr_app multi_port_pepo scanner_space");
 
             }
         } // Fim if estamos dentro do waypoint

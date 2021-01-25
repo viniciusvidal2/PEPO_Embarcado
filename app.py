@@ -20,7 +20,7 @@ global_project_accepted_types = ['ambientes', 'objetos']
 global_feedback = ''
 global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
 global_image_camera = ''
-global_image_topic = roslibpy.Topic(ros, '/camera/image_raw/compressed', 'sensor_msgs/CompressedImage')
+global_image_topic = roslibpy.Topic(ros, '/image_user/compressed', 'sensor_msgs/CompressedImage')
 global_camera_state = False
 global_camera_state_topic = roslibpy.Topic(ros, '/camera_state', 'std_msgs/Bool')
 global_scan_state = False
@@ -43,6 +43,7 @@ def post_acquisition_cancel():
     global global_image_camera
 
     os.system('rosnode kill camera')
+    os.system('rosnode kill imagem_lr_app')
     os.system('rosnode kill imu_node')
     os.system('rosnode kill livox_lidar_publisher')
     os.system('rosnode kill multi_port_pepo')
@@ -115,6 +116,7 @@ def camera_force_kill():
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
     global global_image_camera
+    os.system('rosnode kill imagem_lr_app')
     process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
     process.wait()
     global_image_camera = ''

@@ -110,7 +110,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "encaminha_dados_desktop");
+    ros::init(argc, argv, "imagem_lr_app");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
 
@@ -126,12 +126,10 @@ int main(int argc, char **argv)
     pc = new ProcessCloud("/home/pepo/Desktop");
     
     // Subscriber para topicos de imagem e de nuvem
-    ros::Subscriber im_sub = nh.subscribe("/image_temp", 10, imagemCallback);
-    ros::Subscriber cl_sub = nh.subscribe("/cloud_temp", 10, cloudCallback);
+    ros::Subscriber im_sub = nh.subscribe("/camera/image_raw", 10, imagemCallback);
+//    ros::Subscriber cl_sub = nh.subscribe("/cloud_temp", 10, cloudCallback);
 
-    while(ros::ok()){
-        ros::spinOnce();
-    }
+    ros::spin();
 
     return 0;
 }

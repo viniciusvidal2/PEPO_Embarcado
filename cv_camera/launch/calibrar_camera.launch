@@ -7,4 +7,8 @@
     <param name="rescale_camera_info"      value="true"/>
 </node>
 
+<!--No de reproducao de imagem em escala reduzida para app-->
+<node name="imagem_lr_app" pkg="communication" type="encaminha_dados_desktop" output="screen">
+</node>
+
 </launch>
