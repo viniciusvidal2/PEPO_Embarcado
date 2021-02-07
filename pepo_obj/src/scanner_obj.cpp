@@ -148,10 +148,16 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         }
 
         // Falar a porcentagem da aquisicao para o usuario
-        if(contador_nuvem % 40 == 0){
+        if(contador_nuvem % 40 == 0){            
+            sleep(5);
             std_msgs::Float32 msg_feedback;
             msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
             feedback_pub.publish(msg_feedback);
+            if(msg_feedback.data == 100){
+                sleep(3);
+                msg_feedback.data = 1;
+                feedback_pub.publish(msg_feedback);
+            }
         }
     }
 }

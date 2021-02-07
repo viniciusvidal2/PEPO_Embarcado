@@ -156,6 +156,9 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = 100.0;
         msg_pub.publish(msg_feedback);
+        sleep(3);
+        msg_feedback.data = 1.0;
+        msg_pub.publish(msg_feedback);
 
         // Esse no so finaliza a si mesmo, os outros sao finalizados no edge
         ROS_INFO("Processo finalizado.");
