@@ -78,6 +78,7 @@ public:
   void transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem);
   void transformCloudAndCamServoAngles(PointCloud<PointT>::Ptr cloud, float pan, float tilt, Vector3f &C, Quaternion<float> &q);
   void colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale);
+  void getVirtualImage(PointCloud<PointXYZ>::Ptr cloud_in, Mat image, Mat &iv, float scale);
 
   void saveCloud(PointCloud<PointT>::Ptr nuvem, string nome);
   void saveCloud(PointCloud<PointXYZ>::Ptr nuvem, string nome);

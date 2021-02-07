@@ -35,16 +35,19 @@ cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 200; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 300; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 ProcessImages *pi;
+// Publicador da nuvem de pontos que vai criar a imagem virtual para o usuario
+ros::Publisher cloud_pub;
 // Nuvem de pontos parciais
 PointCloud<PointXYZ>::Ptr parcial;
 // Testando sincronizar subscribers por mutex
 Mutex m;
 // Contador de aquisicoes - usa tambem para salvar no lugar certo
 int cont_aquisicao = 0;
+int cont_imagem_virtual = 0;
 // Publisher para feedback
 ros::Publisher feedback_pub;
 
@@ -86,11 +89,14 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 /// Callback do laser
 ///
 void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
+    // Ler a mensagem e acumular na nuvem total por N vezes quando aquisitando
+    PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
+    fromROSMsg (*msg, *cloud);
+    pc->cleanMisreadPoints(cloud);
+    // Encaminha para o no de comunicacao que cria imagem virtual
+    cloud_pub.publish(*msg);
+
     if(aquisitando){
-        // Ler a mensagem e acumular na nuvem total por N vezes
-        PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
-        fromROSMsg (*msg, *cloud);
-        pc->cleanMisreadPoints(cloud);
         *parcial += *cloud;
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
@@ -120,27 +126,30 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 60); // Z metros de profundidade
+            pass.setFilterLimits(0, 30); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1);
             // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
+            Mat im2save;
+            min_blur_im.copyTo(im2save);
+            min_blur_im.release();
             if(cont_aquisicao < 10){
-                pi->saveImage(min_blur_im, "imagem_00"+std::to_string(cont_aquisicao));
+                pi->saveImage(im2save, "imagem_00"+std::to_string(cont_aquisicao));
                 pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
             } else if(cont_aquisicao < 100) {
-                pi->saveImage(min_blur_im, "imagem_0"+std::to_string(cont_aquisicao));
+                pi->saveImage(im2save, "imagem_0"+std::to_string(cont_aquisicao));
                 pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
             } else {
-                pi->saveImage(min_blur_im, "imagem_"+std::to_string(cont_aquisicao));
+                pi->saveImage(im2save, "imagem_"+std::to_string(cont_aquisicao));
                 pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
             //////////////////////
             // Zerar contador de nuvens da parcial e anunciar 100%
             contador_nuvem = 0;
-            min_blur_im.release(); max_var = 0; // Liberando a imagem para a proxima captura
+            max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
 
         } else {
@@ -148,14 +157,17 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         }
 
         // Falar a porcentagem da aquisicao para o usuario
-        if(contador_nuvem % 40 == 0){            
-            sleep(5);
+        if(contador_nuvem % (N/5) == 0){
             std_msgs::Float32 msg_feedback;
             msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
-            feedback_pub.publish(msg_feedback);
+
             if(msg_feedback.data == 100){
+                sleep(4);
+                feedback_pub.publish(msg_feedback);
                 sleep(3);
                 msg_feedback.data = 1;
+                feedback_pub.publish(msg_feedback);
+            } else {
                 feedback_pub.publish(msg_feedback);
             }
         }
@@ -225,6 +237,9 @@ int main(int argc, char **argv)
     // Subscribers dessincronizados para mensagens de laser e imagem
     ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
     ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
+
+    // Publisher da nuvem
+    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);
 
     ROS_INFO("Comecando a aquisicao ...");
     std_msgs::Float32 msg_feedback;
