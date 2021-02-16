@@ -2,9 +2,13 @@
 
 <!--Lancar no do driver camera USB-->
 <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
-    <param name="cv_cap_prop_frame_width"  value="1920"/>
-    <param name="cv_cap_prop_frame_height" value="1080"/>
+    <param name="cv_cap_prop_frame_width"  value="1280"/>
+    <param name="cv_cap_prop_frame_height" value="720"/>
     <param name="rescale_camera_info"      value="true"/>
+</node>
+
+<!--No de reproducao de imagem em escala reduzida para app-->
+<node name="imagem_lr_app" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
 
 </launch>

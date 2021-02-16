@@ -115,11 +115,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
 
   *acc += *cloud;
 
-  // Fala a porcentagem do total que ja resolvemos
-  std_msgs::Float32 msg_feedback;
-  msg_feedback.data = 100.0*float(cont_aquisicao)/float(msg_angle->pose.pose.orientation.w);
-  msg_pub.publish(msg_feedback);
-
   // Fazendo processos finais
   if(cont_aquisicao >= msg_angle->pose.pose.orientation.w){
     ROS_INFO("Processando todo o SFM otimizado ...");
@@ -153,7 +148,11 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
     pc->blueprint(acc, side_area, side_res, blueprint);
     acc->clear();
 
+    std_msgs::Float32 msg_feedback;
     msg_feedback.data = 100.0;
+    msg_pub.publish(msg_feedback);
+    sleep(3);
+    msg_feedback.data = 1.0;
     msg_pub.publish(msg_feedback);
 
     // Esse no so finaliza a si mesmo, os outros sao finalizados no edge
@@ -161,6 +160,11 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
     ros::shutdown();
   }
   ////////////////
+  // Fala a porcentagem do total que ja resolvemos
+  std_msgs::Float32 msg_feedback;
+  msg_feedback.data = 100.0*float(cont_aquisicao)/float(msg_angle->pose.pose.orientation.w);
+  if(msg_feedback.data < 100.0)
+      msg_pub.publish(msg_feedback);
 }
 
 /// Main
@@ -205,10 +209,12 @@ int main(int argc, char **argv)
   // Publicador de quanto esta sendo
   msg_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
   std_msgs::Float32 msg_feedback;
-  msg_feedback.data = 0;
-  msg_pub.publish(msg_feedback);
-  msg_pub.publish(msg_feedback);
-  msg_pub.publish(msg_feedback);
+  msg_feedback.data = 1.0; // Para a camera liberar no aplicativo
+  ros::Rate r(2);
+  for(int i=0; i<5; i++){
+      msg_pub.publish(msg_feedback);
+      r.sleep();
+  }
 
   // Iniciar subscritor da nuvem sincronizado com odometria
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(nh, "/cloud_space", 100);

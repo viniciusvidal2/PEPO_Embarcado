@@ -21,15 +21,33 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "../../libraries/include/processcloud.h"
+
+
+using namespace pcl;
 using namespace cv;
 using namespace std;
 
+typedef PointXYZRGB PointT;
+
 cv_bridge::CvImagePtr imptr;
+int contador_nuvem = 0;
+ProcessCloud *pc;
 Mutex m;
 bool aquisitar_imagem = true, imagem_ok = false;
 
 // Publisher para a nuvem e imagem
 image_transport::Publisher im_pub;
+ros::Publisher cl_pub;
+
+// Flag de controle para imagem virtual ou nao: se chamar o callback da nuvem quer dizer que
+// estamos capturando objeto, portanto a imagem que vai ser publicada sera a virtual
+bool imagem_virtual_usuario = false;
+
+PointCloud<PointXYZ>::Ptr parcial, cloud_im_virtual;
+vector<PointCloud<PointXYZ>> clouds_im_virtual;
+
+int cont_imagem_virtual = 0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
@@ -37,31 +55,96 @@ void imagemCallback(const sensor_msgs::ImageConstPtr& msg){
     if(aquisitar_imagem)
         imptr = cv_bridge::toCvCopy(msg, msg->encoding);
     imagem_ok = true;
-    // Reduz a resolucao e passa para jpeg
-    Mat im;
-    resize(imptr->image, im, Size(imptr->image.cols/4, imptr->image.rows/4));
-    cv_bridge::CvImage msg_out;
-    msg_out.header   = msg->header;
-    msg_out.encoding = sensor_msgs::image_encodings::BGR8;
-    msg_out.image    = im;
 
-    im_pub.publish(msg_out.toImageMsg());
+    if(!imagem_virtual_usuario){
+        // Reduz a resolucao e passa para jpeg
+        Mat im;
+        resize(imptr->image, im, Size(imptr->image.cols/4, imptr->image.rows/4));
+
+        cv_bridge::CvImage msg_out;
+        msg_out.header   = msg->header;
+        msg_out.encoding = sensor_msgs::image_encodings::BGR8;
+        msg_out.image    = im;
+        im_pub.publish(msg_out.toImageMsg());
+    }
+
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
+    imagem_virtual_usuario = true; // Estamos na aquisicao de objeto, transmitir imagem virtual
+
+    if(imagem_ok){
+        // Converter mensagem
+        PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>);
+        fromROSMsg(*msg, *cloud);
+        pc->cleanMisreadPoints(cloud);
+
+        // A todo tempo deve haver imagem virtual, portanto agrupando
+        *cloud_im_virtual += *cloud;
+        cont_imagem_virtual++;
+
+        if(cont_imagem_virtual == 20){ // Se inteirar 20, adiciona no vetor
+            clouds_im_virtual.push_back(*cloud_im_virtual);
+            if(clouds_im_virtual.size() > 5) // Mais de X no vetor retira a mais antiga ja
+                clouds_im_virtual.erase(clouds_im_virtual.begin());
+            for(auto c:clouds_im_virtual) // Soma todas as ultimas vistas para mandar pro usuario
+                *parcial += c;
+
+            m.lock();
+
+            // Transformando nuvem para o frame da camera
+            pc->transformToCameraFrame(parcial);
+            // Colorir pontos com calibracao default para visualizacao rapida
+            aquisitar_imagem = false;
+            Mat temp_im;
+            imptr->image.copyTo(temp_im);
+            resize(temp_im, temp_im, Size(480, 270));
+            // Imagem virtual iniciada
+            Mat virtual_image(Size(480, 270), CV_8UC3, Scalar(0, 0, 0));
+            pc->getVirtualImage(parcial, temp_im, virtual_image, 4);
+            // Poupar memoria da parcial
+            parcial->clear();
+
+            aquisitar_imagem = true;
+            m.unlock();
+
+            // Publicar imagem virtual
+            resize(virtual_image, virtual_image, Size(320, 180));
+            cv_bridge::CvImage msg_out;
+            msg_out.header   = msg->header;
+            msg_out.encoding = sensor_msgs::image_encodings::BGR8;
+            msg_out.image    = virtual_image;
+            im_pub.publish(msg_out.toImageMsg());
+
+            cont_imagem_virtual = 0; // Reseta para a proxima acumulacao de nuvens
+        }
+    }
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "encaminha_dados_desktop");
+    ros::init(argc, argv, "imagem_lr_app");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
 
+    // Inicia nuvem parcial acumulada a cada passagem do laser
+    parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
+    parcial->header.frame_id  = "pepo";
+    cloud_im_virtual = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
+    cloud_im_virtual->header.frame_id  = "pepo";
+
     // Publicadores
     im_pub = it.advertise("/image_user", 10);
-    
-    // Subscriber para topicos de imagem e de nuvem
-    ros::Subscriber im_sub = nh.subscribe("/image_temp", 10, imagemCallback);
+    cl_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_user", 10);
 
-    while(ros::ok())
-        ros::spinOnce();
+    // Inicia classe de processo de nuvens
+    pc = new ProcessCloud("/home/pepo/Desktop");
+
+    // Subscriber para topicos de imagem e de nuvem
+    ros::Subscriber im_sub = nh.subscribe("/camera/image_raw", 10, imagemCallback);
+    ros::Subscriber cl_sub = nh.subscribe("/cloud_virtual_image", 10, cloudCallback);
+
+    ros::spin();
 
     return 0;
 }
