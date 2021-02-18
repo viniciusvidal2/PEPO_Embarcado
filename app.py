@@ -46,7 +46,7 @@ def post_acquisition_cancel():
     os.system('rosnode kill imagem_lr_app')
     os.system('rosnode kill imu_node')
     os.system('rosnode kill livox_lidar_publisher')
-    os.system('rosnode kill multi_port_pepo')
+    os.system('rosnode kill multi_port_cap')
     os.system('rosnode kill scanner_space')
     os.system('rosnode kill acc_space_node')
     os.system('rosnode kill scanner_obj')
@@ -393,4 +393,3 @@ init_subscribers()
 
 if __name__ == '__main__':
     app.run()
-
