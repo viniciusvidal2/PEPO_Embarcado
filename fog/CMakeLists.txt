@@ -22,7 +22,7 @@ include_directories(${OpenMP_INCLUDE_DIRS})
 
 catkin_package(CATKIN_DEPENDS DEPENDS roscpp cv_bridge sensor_msgs std_msgs nav_msgs pcl_ros tf2_ros pcl_conversions message_filters)
 
-add_executable(acc_space_node src/acc_space2.cpp ../libraries/src/processcloud.cpp)
+add_executable(acc_space_node src/acc_space2.cpp ../libraries/src/processcloud.cpp ../libraries/src/dynamixelservos.cpp)
 target_compile_options(acc_space_node PRIVATE ${OpenMP_FLAGS})
 add_dependencies(acc_space_node ${catkin_EXPORTED_TARGETS})
 target_link_libraries(acc_space_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OpenMP_LIBS})

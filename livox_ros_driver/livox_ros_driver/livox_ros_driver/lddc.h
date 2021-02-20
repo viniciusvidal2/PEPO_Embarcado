@@ -24,13 +24,18 @@
 #ifndef LIVOX_ROS_DRIVER_LDDC_H_
 #define LIVOX_ROS_DRIVER_LDDC_H_
 
-#include "livox_sdk.h"
 #include "lds.h"
+#include "livox_sdk.h"
 
 #include <ros/ros.h>
 #include <rosbag/bag.h>
+#include <pcl_ros/point_cloud.h>
+#include <livox_ros_driver/CustomMsg.h>
+#include <livox_ros_driver/CustomPoint.h>
 
 namespace livox_ros {
+
+typedef pcl::PointCloud<pcl::PointXYZI> PointCloud;
 
 /** Lidar data distribute control */
 typedef enum {
@@ -40,53 +45,65 @@ typedef enum {
 } TransferType;
 
 class Lddc {
-public:
-  Lddc(int format, int multi_topic, int data_src, int output_type, double frq);
+ public:
+  Lddc(int format, int multi_topic, int data_src, int output_type, double frq,
+      std::string &frame_id, bool lidar_bag, bool imu_bag);
   ~Lddc();
 
-  int RegisterLds(Lds* lds);
+  int RegisterLds(Lds *lds);
   void DistributeLidarData(void);
-  void CreateBagFile(const std::string& file_name);
+  void CreateBagFile(const std::string &file_name);
   void PrepareExit(void);
 
   uint8_t GetTransferFormat(void) { return transfer_format_; }
   uint8_t IsMultiTopic(void) { return use_multi_topic_; }
-  void SetRosNode(ros::NodeHandle* node) { cur_node_ = node; }
+  void SetRosNode(ros::NodeHandle *node) { cur_node_ = node; }
 
-  void SetRosPub(ros::Publisher* pub) { global_pub_ = pub; };
+  void SetRosPub(ros::Publisher *pub) { global_pub_ = pub; };
   void SetPublishFrq(uint32_t frq) { publish_frq_ = frq; }
 
-  Lds* lds_;
+  Lds *lds_;
 
-private:
-  uint32_t PublishPointcloud2(LidarDataQueue* queue, uint32_t packet_num, \
+ private:
+  int32_t GetPublishStartTime(LidarDevice *lidar, LidarDataQueue *queue,
+                              uint64_t *start_time,
+                              StoragePacket *storage_packet);
+  uint32_t PublishPointcloud2(LidarDataQueue *queue, uint32_t packet_num,
                               uint8_t handle);
-  uint32_t PublishPointcloudData(LidarDataQueue* queue, uint32_t packet_num, \
+  uint32_t PublishPointcloudData(LidarDataQueue *queue, uint32_t packet_num,
                                  uint8_t handle);
-  uint32_t PublishCustomPointcloud(LidarDataQueue* queue, uint32_t packet_num,\
+  uint32_t PublishCustomPointcloud(LidarDataQueue *queue, uint32_t packet_num,
                                    uint8_t handle);
-  uint32_t PublishImuData(LidarDataQueue* queue, uint32_t packet_num,\
+  uint32_t PublishImuData(LidarDataQueue *queue, uint32_t packet_num,
                           uint8_t handle);
 
-  ros::Publisher* GetCurrentPublisher(uint8_t handle);
-  ros::Publisher* GetCurrentImuPublisher(uint8_t handle);
-  void PollingLidarPointCloudData(uint8_t handle, LidarDevice* lidar);
-  void PollingLidarImuData(uint8_t handle, LidarDevice* lidar);
-
+  ros::Publisher *GetCurrentPublisher(uint8_t handle);
+  ros::Publisher *GetCurrentImuPublisher(uint8_t handle);
+  void PollingLidarPointCloudData(uint8_t handle, LidarDevice *lidar);
+  void PollingLidarImuData(uint8_t handle, LidarDevice *lidar);
+  void InitPointcloud2MsgHeader(sensor_msgs::PointCloud2& cloud);
+  void FillPointsToPclMsg(PointCloud::Ptr& pcl_msg, \
+      LivoxPointXyzrtl* src_point, uint32_t num);
+  void FillPointsToCustomMsg(livox_ros_driver::CustomMsg& livox_msg, \
+      LivoxPointXyzrtl* src_point, uint32_t num, uint32_t offset_time, \
+      uint32_t point_interval, uint32_t echo_num);
   uint8_t transfer_format_;
   uint8_t use_multi_topic_;
   uint8_t data_src_;
   uint8_t output_type_;
   double publish_frq_;
-  int32_t publish_interval_ms_;
-  ros::Publisher* private_pub_[kMaxSourceLidar];
-  ros::Publisher* global_pub_;
-  ros::Publisher* private_imu_pub_[kMaxSourceLidar];
-  ros::Publisher* global_imu_pub_;
+  uint32_t publish_period_ns_;
+  std::string frame_id_;
+  bool enable_lidar_bag_;
+  bool enable_imu_bag_;
+  ros::Publisher *private_pub_[kMaxSourceLidar];
+  ros::Publisher *global_pub_;
+  ros::Publisher *private_imu_pub_[kMaxSourceLidar];
+  ros::Publisher *global_imu_pub_;
 
-  ros::NodeHandle* cur_node_;
-  rosbag::Bag* bag_;
+  ros::NodeHandle *cur_node_;
+  rosbag::Bag *bag_;
 };
 
-}
+}  // namespace livox_ros
 #endif

@@ -78,12 +78,15 @@ public:
   void transformToCameraFrame(PointCloud<PointXYZ>::Ptr nuvem);
   void colorCloudWithCalibratedImage(PointCloud<PointT>::Ptr cloud_in, Mat image, float scale);
 
+  void getVirtualImage(PointCloud<PointXYZ>::Ptr cloud_in, Mat image, Mat &iv, float scale);
+
   void saveCloud(PointCloud<PointT>::Ptr nuvem, string nome);
   void saveCloud(PointCloud<PointXYZ>::Ptr nuvem, string nome);
   string getFolderName();
   void setFolderName(string name);
   Matrix3f euler2matrix(float r, float p, float y);
   void cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud);
+  void cleanNotColoredPoints(PointCloud<PointT>::Ptr cloud);
   Vector2f getFocuses(int scale);
 
   // Entradas apos colocar a fog embarcada
@@ -96,8 +99,8 @@ private:
 
   /// Variaveis
   std::string pasta;     // Nome da pasta a salvar as coisas
-  Matrix3f K1;
-  MatrixXf Rt1;
+  Matrix3f K1, K4;
+  MatrixXf Rt1, Rt4;
 
 };
 

@@ -12,7 +12,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 #include "../../libraries/include/processcloud.h"
-//#include "../../libraries/include/registerobjectoptm.h"
+#include "../../libraries/include/dynamixelservos.h"
 
 /// Namespaces
 ///
@@ -30,45 +30,23 @@ typedef sync_policies::ApproximateTime<sensor_msgs::PointCloud2, nav_msgs::Odome
 
 /// Variaveis globais
 ///
-// Limites em raw e deg para os servos de pan e tilt
-double raw_min_pan = 35, raw_max_pan = 4077;
-double deg_min_pan =  3, deg_max_pan =  358;
-float raw_min_tilt = 2595.0 , raw_hor_tilt = 2280.0, raw_max_tilt = 1595.0 ;
-float deg_min_tilt =   28.0, deg_hor_tilt =    0.0, deg_max_tilt =  -60.20;
-float raw_deg_pan, deg_raw_pan, raw_deg_tilt, deg_raw_tilt;
 // Publicador de feedback
 ros::Publisher msg_pub;
-// Classe de processamento de nuvens
+// Classe de processamento de nuvens e propriedades dos servos
+DynamixelServos *ds;
 ProcessCloud *pc;
 // Nuvens de pontos acumulada e anterior
 PointCloud<PointT>::Ptr acc;
 // Nome da pasta que vamos trabalhar
 string pasta;
 // Poses das cameras para aquela aquisicao [DEG]
-vector<float> pan_cameras, pitch_cameras, roll_cameras;
+vector<float> pan_cameras, pitch_cameras;
 // Vetor com linhas do arquivo NVM
 vector<string> linhas_sfm;
 // Quantos tilts estao ocorrendo por pan, e contador de quantos ja ocorreram
-int ntilts = 4, contador_nuvens = 0;
-// Parametros para filtros
-float voxel_size, depth;
-int filter_poli;
-// Braco do centro ao laser
-Vector3f off_laser{0, 0, 0.056};
+int ntilts = 0, contador_nuvens = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-int deg2raw(float deg, string motor){
-  if(motor == "pan")
-    return int(deg*raw_deg_pan);// int((deg - deg_min_pan )*raw_deg_pan  + raw_min_pan);
-  else
-    return int((deg - deg_min_tilt)*raw_deg_tilt + raw_min_tilt);
-}
-float raw2deg(int raw, string motor){
-  if(motor == "pan")
-    return float(raw)*deg_raw_pan;// (float(raw) - raw_min_pan )*deg_raw_pan  + deg_min_pan;
-  else
-    return (float(raw) - raw_max_tilt)*deg_raw_tilt + deg_max_tilt;
-}
 string find_current_folder(string p){
     struct stat buffer;
     string ultimo_nome = p + std::to_string(0);
@@ -82,7 +60,6 @@ string find_current_folder(string p){
 }
 void saveTempCloud(PointCloud<PointT>::Ptr cloud, int n){
   // Salva a parcial daquela vista
-  ROS_INFO("Salvando a nuvem do juliano ...");
   if(n < 10){
     pc->saveCloud(cloud, "c_00"+std::to_string(n));
   } else if(n < 100) {
@@ -97,8 +74,7 @@ void saveTempCloud(PointCloud<PointT>::Ptr cloud, int n){
 ///
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr& msg_angle){
   // As mensagens trazem angulos em unidade RAD, exceto pan
-  roll_cameras.push_back(msg_angle->pose.pose.position.x);
-  pan_cameras.push_back(DEG2RAD(raw2deg(int(msg_angle->pose.pose.position.z), "pan")));
+  pan_cameras.push_back(DEG2RAD(ds->raw2deg(int(msg_angle->pose.pose.position.z), "pan")));
   pitch_cameras.push_back(msg_angle->pose.pose.position.y);
   // Atualiza a quantidade de tilts que estamos esperando
   ntilts = int(msg_angle->pose.pose.orientation.x);
@@ -110,6 +86,9 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
   PointCloud<PointT>::Ptr cloud (new PointCloud<PointT>);
   fromROSMsg(*msg_cloud, *cloud);
 
+  // Retirar pontos que nao foram coloridos pela imagem
+  pc->cleanNotColoredPoints(cloud);
+
   // Salva as nuvens temporarias
   saveTempCloud(cloud, cont_aquisicao);
 
@@ -120,16 +99,11 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
     ROS_INFO("Processando todo o SFM otimizado ...");
     for(int i=0; i<pan_cameras.size(); i++){
       // Calcula a matriz de rotacao da camera
-      float r = -roll_cameras[i], t = -pitch_cameras[i], p = -pan_cameras[i]; // [RAD]
-      Matrix3f Rp = pc->euler2matrix(0, 0, -p);
-      Matrix3f Rcam = pc->euler2matrix(0, t, p).inverse();
+      float r = -msg_angle->pose.pose.position.x, t = -pitch_cameras[i], p = -pan_cameras[i]; // [RAD]
+      Matrix3f Rcam = pc->euler2matrix(r, t, p).inverse();
 
       // Calcula centro da camera
-      Vector3f C = Rp*off_laser;
-      C = -Rcam.transpose()*pc->gettCam() + C;
-
-      // Calcula vetor de translacao da camera por t = -R'*C
-      Vector3f tcam = C;
+      Vector3f C = -Rcam.transpose()*pc->gettCam();
 
       // Escreve a linha e anota no vetor de linhas SFM
       string nome_imagem;
@@ -139,12 +113,12 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
         nome_imagem = "imagem_0" +std::to_string(i+1)+".png";
       else
         nome_imagem = "imagem_"  +std::to_string(i+1)+".png";
-      linhas_sfm.push_back(pc->escreve_linha_sfm(nome_imagem, Rcam, tcam));
+      linhas_sfm.push_back(pc->escreve_linha_sfm(nome_imagem, Rcam, C));
     }
     ROS_INFO("Salvando SFM e planta baixa final ...");
     pc->compileFinalSFM(linhas_sfm);
     Mat blueprint;
-    float side_area = 20, side_res = 0.04;
+    float side_area = 30, side_res = 0.04;
     pc->blueprint(acc, side_area, side_res, blueprint);
     acc->clear();
 
@@ -180,12 +154,12 @@ int main(int argc, char **argv)
   // Tempo para a pasta ser criada corretamente pelo outro no de contato com os sensores em edge
   sleep(5);
 
+  // Classe de propriedades dos servos - no inicio para ja termos em maos
+  ds = new DynamixelServos();
+
   // Pegando o nome da pasta por parametro
   string nome_param;
   n_.param<string>("pasta", nome_param , string("Dados_PEPO"));
-  n_.param<float >("vs"   , voxel_size , 2    );
-  n_.param<float >("df"   , depth      , 50   );
-  n_.param<int   >("fp"   , filter_poli, 1    );
 
   char* home;
   home = getenv("HOME");
@@ -195,12 +169,6 @@ int main(int argc, char **argv)
 
   // Inicia classe de processo de nuvens
   pc  = new ProcessCloud(pasta);
-
-  // Calculando taxas exatas entre deg e raw para os motores de pan e tilt
-  deg_raw_pan  = 0.08764648;
-  deg_raw_tilt = deg_raw_pan;
-  raw_deg_pan  = 1.0/deg_raw_pan ;
-  raw_deg_tilt = 1.0/deg_raw_tilt;
 
   // Iniciando a nuvem parcial acumulada de cada pan
   acc = (PointCloud<PointT>::Ptr) new PointCloud<PointT>();

@@ -22,57 +22,78 @@
 // SOFTWARE.
 //
 
-#include <vector>
-#include <chrono>
-
-#include "livox_sdk.h"
-#include <ros/ros.h>
-
-#include "lds_lvx.h"
-#include "lds_lidar.h"
-#include "lds_hub.h"
-#include "lddc.h"
 #include "include/livox_ros_driver.h"
+
+#include <chrono>
+#include <vector>
+#include <csignal>
+
+#include <ros/ros.h>
+#include "lddc.h"
+#include "lds_hub.h"
+#include "lds_lidar.h"
+#include "lds_lvx.h"
+#include "livox_sdk.h"
 
 using namespace livox_ros;
 
 const int32_t kSdkVersionMajorLimit = 2;
 
+inline void SignalHandler(int signum) {
+  printf("livox ros driver will exit\r\n");
+  ros::shutdown();
+  exit(signum);
+}
+
 int main(int argc, char **argv) {
-
-  ROS_INFO("Livox Ros Driver Version: %s", LIVOX_ROS_DRIVER_VERSION_STRING);
-
   /** Ros related */
-  if(ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
+  if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                                     ros::console::levels::Debug)) {
     ros::console::notifyLoggerLevelsChanged();
   }
   ros::init(argc, argv, "livox_lidar_publisher");
   ros::NodeHandle livox_node;
 
+  ROS_INFO("Livox Ros Driver Version: %s", LIVOX_ROS_DRIVER_VERSION_STRING);
+  signal(SIGINT, SignalHandler);
   /** Check sdk version */
   LivoxSdkVersion _sdkversion;
   GetLivoxSdkVersion(&_sdkversion);
   if (_sdkversion.major < kSdkVersionMajorLimit) {
-    ROS_INFO("The SDK version[%d.%d.%d] is too low", \
-             _sdkversion.major, _sdkversion.minor, _sdkversion.patch);
+    ROS_INFO("The SDK version[%d.%d.%d] is too low", _sdkversion.major,
+             _sdkversion.minor, _sdkversion.patch);
     return 0;
   }
 
-  /** Init defualt system parameter */
+  /** Init default system parameter */
   int xfer_format = kPointCloud2Msg;
   int multi_topic = 0;
-  int data_src    = kSourceRawLidar;
-  double publish_freq = 50.0; /* Hz */
-  int output_type = kOutputToRos;
+  int data_src = kSourceRawLidar;
+  double publish_freq  = 10.0; /* Hz */
+  int output_type      = kOutputToRos;
+  std::string frame_id = "livox_frame";
+  bool lidar_bag = true;
+  bool imu_bag   = false;
 
   livox_node.getParam("xfer_format", xfer_format);
   livox_node.getParam("multi_topic", multi_topic);
   livox_node.getParam("data_src", data_src);
   livox_node.getParam("publish_freq", publish_freq);
   livox_node.getParam("output_data_type", output_type);
+  livox_node.getParam("frame_id", frame_id);
+  livox_node.getParam("enable_lidar_bag", lidar_bag);
+  livox_node.getParam("enable_imu_bag", imu_bag);
+  if (publish_freq > 100.0) {
+    publish_freq = 100.0;
+  } else if (publish_freq < 0.1) {
+    publish_freq = 0.1;
+  } else {
+    publish_freq = publish_freq;
+  }
 
   /** Lidar data distribute control and lidar data source set */
-  Lddc* lddc = new Lddc(xfer_format, multi_topic, data_src, output_type, publish_freq);
+  Lddc *lddc = new Lddc(xfer_format, multi_topic, data_src, output_type,
+                        publish_freq, frame_id, lidar_bag, imu_bag);
   lddc->SetRosNode(&livox_node);
 
   int ret = 0;
@@ -89,7 +110,7 @@ int main(int argc, char **argv) {
     std::vector<std::string> bd_code_list;
     ParseCommandlineInputBdCode(cmdline_bd_code.c_str(), bd_code_list);
 
-    LdsLidar* read_lidar = LdsLidar::GetInstance(1000/publish_freq);
+    LdsLidar *read_lidar = LdsLidar::GetInstance(1000 / publish_freq);
     lddc->RegisterLds(static_cast<Lds *>(read_lidar));
     ret = read_lidar->InitLdsLidar(bd_code_list, user_config_path.c_str());
     if (!ret) {
@@ -110,7 +131,7 @@ int main(int argc, char **argv) {
     std::vector<std::string> bd_code_list;
     ParseCommandlineInputBdCode(cmdline_bd_code.c_str(), bd_code_list);
 
-    LdsHub* read_hub = LdsHub::GetInstance(1000/publish_freq);
+    LdsHub *read_hub = LdsHub::GetInstance(1000 / publish_freq);
     lddc->RegisterLds(static_cast<Lds *>(read_hub));
     ret = read_hub->InitLdsHub(bd_code_list, user_config_path.c_str());
     if (!ret) {
@@ -135,7 +156,7 @@ int main(int argc, char **argv) {
       rosbag_file_path = cmdline_file_path.substr(0, path_end_pos);
       rosbag_file_path += ".bag";
 
-      LdsLvx* read_lvx = LdsLvx::GetInstance(1000/publish_freq);
+      LdsLvx *read_lvx = LdsLvx::GetInstance(1000 / publish_freq);
       lddc->RegisterLds(static_cast<Lds *>(read_lvx));
       lddc->CreateBagFile(rosbag_file_path);
       int ret = read_lvx->InitLdsLvx(cmdline_file_path.c_str());
@@ -144,17 +165,13 @@ int main(int argc, char **argv) {
       } else {
         ROS_ERROR("Init lds lvx file fail!");
       }
-    } while(0);
+    } while (0);
   }
 
   ros::Time::init();
-  ros::Rate r(publish_freq);
   while (ros::ok()) {
     lddc->DistributeLidarData();
-    r.sleep();
   }
 
   return 0;
 }
-
-

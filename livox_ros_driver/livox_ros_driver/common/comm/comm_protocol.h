@@ -26,9 +26,9 @@
 #define COMM_COMM_PROTOCOL_H_
 
 #include <stdint.h>
+#include "gps_protocol.h"
 #include "protocol.h"
 #include "sdk_protocol.h"
-#include "gps_protocol.h"
 
 namespace livox_ros {
 const uint32_t kCacheSize = 8192;
@@ -51,10 +51,11 @@ typedef struct {
 
 class CommProtocol {
  public:
-  CommProtocol(ProtocolConfig& config);
+  CommProtocol(ProtocolConfig &config);
   ~CommProtocol();
 
-  int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len, const CommPacket &i_packet);
+  int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len,
+               const CommPacket &i_packet);
 
   int32_t ParseCommStream(CommPacket *o_pack);
 
@@ -70,7 +71,7 @@ class CommProtocol {
   uint32_t GetCacheTailSize();
   uint32_t GetValidDataSize();
   void UpdateCache(void);
-  uint8_t* GetCacheReadPos() { return &cache_.buf[cache_.rd_idx]; }
+  uint8_t *GetCacheReadPos() { return &cache_.buf[cache_.rd_idx]; }
   void ResetCache() {
     cache_.wr_idx = 0;
     cache_.rd_idx = 0;
@@ -78,7 +79,7 @@ class CommProtocol {
   }
 
   ProtocolConfig config_;
-  Protocol* protocol_;
+  Protocol *protocol_;
   CommCache cache_;
   uint16_t seq_num_;
 
@@ -92,7 +93,7 @@ class CommProtocol {
   int32_t FsmFindPacketLength();
   int32_t FsmGetPacketData(CommPacket *o_pack);
   void FsmParserStateTransfer(uint32_t new_state) {
-    if(new_state < kParseStepUndef) {
+    if (new_state < kParseStepUndef) {
       fsm_parse_step_ = new_state;
     } else {
       fsm_parse_step_ = kSearchPacketPreamble;
@@ -100,5 +101,5 @@ class CommProtocol {
   }
 };
 
-}  // namespace livox
+}  // namespace livox_ros
 #endif  // COMM_COMM_PROTOCOL_H_

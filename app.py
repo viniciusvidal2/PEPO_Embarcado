@@ -14,17 +14,17 @@ ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
 ros.on_ready(lambda: print('Is ROS connected ?', ros.is_connected))
 ros.run()
 
+global_aquisition_type = 0
 global_project_root_path = '/home/cap/Desktop/'
 global_project_accepted_types = ['ambientes', 'objetos']
 global_feedback = ''
 global_feedback_topic = roslibpy.Topic(ros, '/feedback_scan', 'std_msgs/Float32')
 global_image_camera = ''
-global_image_topic = roslibpy.Topic(ros, '/camera/image_raw/compressed', 'sensor_msgs/CompressedImage')
+global_image_topic = roslibpy.Topic(ros, '/image_user/compressed', 'sensor_msgs/CompressedImage')
 global_camera_state = False
 global_camera_state_topic = roslibpy.Topic(ros, '/camera_state', 'std_msgs/Bool')
 global_scan_state = False
 global_scan_state_topic = roslibpy.Topic(ros, '/scan_state', 'std_msgs/Bool')
-
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -37,18 +37,44 @@ def get_default_route():
 
 @app.route("/acquisition/cancel", methods=['POST'])
 def post_acquisition_cancel():
-    node_kill_list = [
-        'camera',
-        'imu_node',
-        'livox_lidar_publisher',
-        'multi_port_pepo scanner_space',
-        'acc_space_node scanner_obj'
-    ]
+    global global_camera_state
+    global global_scan_state
+    global global_feedback
+    global global_image_camera
 
-    for node in node_kill_list:
-        os.system('rosnode kill ' + node)
+    os.system('rosnode kill camera')
+    os.system('rosnode kill imagem_lr_app')
+    os.system('rosnode kill imu_node')
+    os.system('rosnode kill livox_lidar_publisher')
+    os.system('rosnode kill multi_port_cap')
+    os.system('rosnode kill scanner_space')
+    os.system('rosnode kill acc_space_node')
+    os.system('rosnode kill scanner_obj')
+
+    camera_force_kill()
 
     return jsonify('ok')
+
+
+@app.route("/acquisition/capture_obj", methods=['POST'])
+def post_acquisition_capture_obj():
+    process = subprocess.Popen('rosservice call /capturar_obj 1', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    return jsonify(True)
+
+
+@app.route("/acquisition/finish_capture_obj", methods=['POST'])
+def post_acquisition_finish_capture_obj():
+    process = subprocess.Popen('rosservice call /capturar_obj 2', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    camera_stop()
+    return jsonify(True)
+
+
+@app.route("/acquisition/type", methods=['GET'])
+def get_acquisition_type():
+    global global_aquisition_type
+    return jsonify(global_aquisition_type)
 
 
 @app.route("/camera/is_busy", methods=['GET'])
@@ -71,18 +97,29 @@ def get_camera_image():
 
 @app.route("/camera/force_kill", methods=['POST'])
 def camera_force_kill():
-    os.system('fuser -k /dev/video0')
+    global global_camera_state
+    global global_scan_state
+    global global_feedback
+    global global_image_camera
+
+    process = subprocess.Popen('fuser -k /dev/video0', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+
+    global_camera_state = False
+    global_scan_state = False
+    global_feedback = 0.0
+    global_image_camera = ''
+
     return jsonify(True)
 
 
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
-    global global_camera_state
-    global global_scan_state
-
-    if not global_camera_state and not global_scan_state:
-        camera_force_kill()
-
+    global global_image_camera
+    os.system('rosnode kill imagem_lr_app')
+    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    global_image_camera = ''
     return jsonify(True)
 
 
@@ -92,7 +129,8 @@ def camera_start():
     global global_scan_state
 
     if not global_camera_state and not global_scan_state:
-        os.system('roslaunch cv_camera calibrar_camera.launch')
+        process = subprocess.Popen('roslaunch cv_camera calibrar_camera.launch', shell=True, stdout=subprocess.PIPE)
+        process.wait()
 
     return jsonify(global_scan_state)
 
@@ -100,13 +138,15 @@ def camera_start():
 @app.route("/camera/stop", methods=['POST'])
 def camera_stop():
     global global_camera_state
-    global global_image_camera
     global global_scan_state
 
+    print('global_camera_state')
+    print(global_camera_state)
+    print('global_scan_state')
+    print(global_scan_state)
+
     if not global_camera_state and not global_scan_state:
-        os.system('rosnode kill camera')
-        camera_force_kill()
-        global_image_camera = ''
+        camera_kill()
 
     return jsonify(True)
 
@@ -129,7 +169,7 @@ def get_date():
 def post_date():
     data = request.get_json()
     param_date = data['dateStr']
-    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) +"' && sudo hwclock -w")
+    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) + "' && sudo hwclock -w")
 
     return jsonify(True)
 
@@ -216,12 +256,14 @@ def project(project_type, project_name):
 
 @app.route('/project/<projecttype>/<projectname>/<scan>/<filename>', methods=['GET'])
 def project_download_file(projecttype, projectname, scan, filename):
-    return send_file(os.path.join(global_project_root_path, projecttype, projectname, scan, filename), as_attachment=True)
+    return send_file(os.path.join(global_project_root_path, projecttype, projectname, scan, filename),
+                     as_attachment=True)
 
 
 @app.route("/project/acquisition", methods=['POST'])
 def project_new():
     global global_feedback
+    global global_aquisition_type
     data = request.get_json()
     nome_str = data['nomeStr']
     tipo_int = data['tipoInt']
@@ -233,7 +275,7 @@ def project_new():
     else:
         subprocess.Popen([f'roslaunch pepo_obj pepo_obj.launch pasta:={nome_str}'], shell=True)
 
-    time.sleep(5)
+    global_aquisition_type = tipo_int
     return jsonify(True)
 
 
@@ -245,10 +287,19 @@ def ping():
 # Ros
 @app.route('/ros/status', methods=['GET'])
 def ros_status():
+    st = os.statvfs('/')
+    free = st.f_bavail * st.f_frsize
+    total = st.f_blocks * st.f_frsize
+    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+
     data = {
         'is_ros_connected_bool': ros.is_connected,
         'distro_str': roslibpy.Param(ros, 'rosdistro').get(callback=None, timeout=30).rstrip().capitalize(),
-        'version_str': roslibpy.Param(ros, 'rosversion').get(callback=None, timeout=30).rstrip()
+        'version_str': roslibpy.Param(ros, 'rosversion').get(callback=None, timeout=30).rstrip(),
+        'free': round(free, 2),
+        'total': round(total, 2),
+        'used': round(used, 2),
+        'used_percent': round(100 * used / total, 2)
     }
 
     return jsonify(data)
@@ -300,7 +351,7 @@ def ros_set_param():
     elif param == 'white_balance_temperature':
         roslibpy.Param(ros, 'white_balance_temperature_auto').get(callback=None, timeout=30)
 
-        if 50 <= value <= 200 and is_auto == 0:
+        if 50 <= value <= 200:
             os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))
 
     return jsonify(value)
@@ -340,7 +391,5 @@ def init_subscribers():
 
 init_subscribers()
 
-
 if __name__ == '__main__':
     app.run()
-

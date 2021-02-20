@@ -51,9 +51,10 @@ class GpsProtocol : public Protocol {
   GpsProtocol();
   ~GpsProtocol() = default;
 
-  int32_t ParsePacket(const uint8_t *i_buf, uint32_t i_len, CommPacket *o_packet) override;
+  int32_t ParsePacket(const uint8_t *i_buf, uint32_t i_len,
+                      CommPacket *o_packet) override;
 
-  int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len, \
+  int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len,
                const CommPacket &i_packet) override;
 
   uint32_t GetPreambleLen() override;
@@ -72,8 +73,7 @@ class GpsProtocol : public Protocol {
   uint32_t found_length_;
 
   uint8_t CalcGpsPacketChecksum(const uint8_t *buf, uint32_t length);
-
 };
 
-}  // namespace livox
+}  // namespace livox_ros
 #endif  // LIVOX_GPS_PROTOCOL_H_

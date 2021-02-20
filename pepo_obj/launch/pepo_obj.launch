@@ -1,12 +1,11 @@
 <launch>
 <arg name="pasta" default="Scanner_obj"/>
 
+<!--Lancar no do driver do laser-->
+<include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
+
 <!--Lancar no do driver camera USB-->
-<node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
-    <param name="cv_cap_prop_frame_width"  value="1920"/>
-    <param name="cv_cap_prop_frame_height" value="1080"/>
-    <param name="rescale_camera_info"      value="true"/>
-</node>
+<include file="$(find cv_camera)/launch/calibrar_camera.launch"/>
 
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_obj" pkg="pepo_obj" type="scanner_obj" output="screen">

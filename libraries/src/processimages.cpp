@@ -27,7 +27,7 @@ void ProcessImages::estimateRaw360(vector<Quaternion<float>> qs, Vector2f fs){
     ////////// Inicia a esfera
     ///
     // Supoe a esfera com resolucao em graus de tal forma - resolucao da imagem final
-    float R = 5; // Raio da esfera [m]
+    float R = 1; // Raio da esfera [m]
     // Angulos para lat e lon, 360 de range para cada, resolucao a definir no step_deg
     float step_deg = 0.1; // [DEGREES]
     int raios_360 = int(360.0 / step_deg), raios_180 = raios_360 / 2.0; // Quantos raios sairao do centro para formar 360 e 180 graus de um circulo 2D

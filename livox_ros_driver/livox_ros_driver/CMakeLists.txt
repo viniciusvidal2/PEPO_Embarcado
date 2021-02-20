@@ -29,6 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
 	std_msgs
 	message_generation
 	rosbag
+	pcl_ros
 	)
 
 ## Find pcl lib
@@ -64,6 +65,7 @@ endif (APR_FOUND)
 ## DEPENDS: system dependencies of this project that dependent projects also n    eed
 catkin_package(CATKIN_DEPENDS
 	roscpp rospy std_msgs message_runtime
+	pcl_ros
 	)
 
 #---------------------------------------------------------------------------------------
@@ -143,7 +145,7 @@ add_executable(${PROJECT_NAME}_node
 # precompile macro and compile option
 #---------------------------------------------------------------------------------------
 target_compile_options(${PROJECT_NAME}_node
-    PRIVATE $<$<CXX_COMPILER_ID:GNU>:-Wall -Werror>
+    PRIVATE $<$<CXX_COMPILER_ID:GNU>:-Wall>
     )
 
 #---------------------------------------------------------------------------------------
@@ -210,8 +212,12 @@ install(TARGETS ${PROJECT_NAME}_node
 	RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 	)
 
+install(DIRECTORY
+  launch
+  config
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+	)
+
 #---------------------------------------------------------------------------------------
 # end of CMakeList.txt
 #---------------------------------------------------------------------------------------
-
-

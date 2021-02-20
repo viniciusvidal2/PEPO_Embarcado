@@ -19,6 +19,7 @@
 
 #include "../../libraries/include/processcloud.h"
 #include "../../libraries/include/processimages.h"
+#include "../../libraries/include/dynamixelservos.h"
 #include "led_control/LED.h"
 
 #include "communication/state.h"
@@ -43,12 +44,7 @@ string pasta;
 // Vetores para posicao angular dos servos
 vector<int>   pans_raw, tilts_raw; // [RAW]
 vector<float> pans_deg, tilts_deg; // [DEG]
-// Limites em raw e deg para os servos de pan e tilt
-float raw_min_pan = 35, raw_max_pan = 4077;
-float deg_min_pan =  3, deg_max_pan =  358;
-float raw_min_tilt = 2595, raw_hor_tilt = 2280, raw_max_tilt = 1595  ;
-float deg_min_tilt =   28, deg_hor_tilt =    0, deg_max_tilt =  -60.2;
-float raw_deg = 11.37777, deg_raw = 1/raw_deg;
+
 // Servico para mover os servos
 ros::ServiceClient comando_motor;
 dynamixel_workbench_msgs::JointCommand cmd;
@@ -57,7 +53,7 @@ ros::ServiceClient comando_leds;
 // Posicao atual de aquisicao
 int indice_posicao = 0;
 // Raio de aceitacao de posicao angular
-int dentro = 5; // [RAW]
+int dentro_pan = 5, dentro_tilt = 30; // [RAW]
 // Flags de controle
 bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria
@@ -67,6 +63,8 @@ ros::Publisher od_pub;
 ProcessCloud *pc;
 // Classe de processamento de imagens
 ProcessImages *pi;
+// Classe de propriedades dos servos
+DynamixelServos *ds;
 // Nuvens de pontos e vetor de nuvens parciais
 PointCloud<PointXYZ>::Ptr parcial;
 // Valor do servo naquele instante em variavel global para ser acessado em varios callbacks
@@ -86,18 +84,6 @@ Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-int deg2raw(double deg, string motor){
-    if(motor == "pan")
-        return int(deg*raw_deg);//int((deg - deg_min_pan )*raw_deg + raw_min_pan);
-    else
-        return int((deg - deg_min_tilt)*raw_deg + raw_min_tilt);
-}
-float raw2deg(int raw, string motor){
-    if(motor == "pan")
-        return float(raw)*deg_raw;//(float(raw) - raw_min_pan )*deg_raw + deg_min_pan;
-    else
-        return (float(raw) - raw_max_tilt)*deg_raw + deg_max_tilt;
-}
 string create_folder(string p){
     struct stat buffer;
     for(int i=1; i<200; i++){ // Tentar criar ate 200 pastas - impossivel
@@ -139,15 +125,6 @@ void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
 }
 
-/// Callback imu
-///
-void imuCallback(const std_msgs::Float32MultiArrayConstPtr &msg_imu){
-    // As mensagens trazem angulos em RAD
-    if(aquisitar_imagem_imu){
-        roll = msg_imu->data.at(0); pitch = msg_imu->data.at(1);
-    }
-}
-
 /// Callback do laser
 ///
 void laserCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud){
@@ -171,39 +148,33 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
+    // Classe de propriedades dos servos - no inicio para ja termos em maos
+    ds = new DynamixelServos();
+
     // Pegando os parametros
     string nome_param;
     int step = 30; // [DEG]
     float inicio_scanner_deg_pan, final_scanner_deg_pan;
     int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
     n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
-    n_.param<int   >("step" , step      , 30                  );
+    n_.param<int   >("step" , step      , 50                  );
     n_.param<float >("inicio_pan", inicio_scanner_deg_pan, step/2      );
     n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360 - step/2);
     n_.param<int   >("qualidade" , qualidade             , 2           );
-    inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? deg_min_pan : inicio_scanner_deg_pan;
-    final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? deg_max_pan : final_scanner_deg_pan;
+    inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? ds->deg_min_pan : inicio_scanner_deg_pan;
+    final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? ds->deg_max_pan : final_scanner_deg_pan;
     if((final_scanner_deg_pan - inicio_scanner_deg_pan) < step || (final_scanner_deg_pan - inicio_scanner_deg_pan) < 0) final_scanner_deg_pan = inicio_scanner_deg_pan + step;
     switch(qualidade){
         case 1:
             qualidade = 15;
             break;
         case 2:
-            qualidade = 30;
+            qualidade = 40;
             break;
         case 3:
             qualidade = 100;
             break;
     }
-
-    // Servico para avisar se comecou ou acabou
-    ros::ServiceClient switch_state_srv = nh.serviceClient<communication::state>("switch_state");
-    communication::state srv_msg;
-    srv_msg.request.state = 1;
-    if(switch_state_srv.call(srv_msg))
-        ROS_WARN("Iniciamos o sistema corretamente !");
-    else
-        ROS_ERROR("Gerenciamento global nao sabe que iniciamos o sistema !");
 
     // Toda a organizacao em pastas na area de trabalho para o space atual
     char* home;
@@ -222,27 +193,32 @@ int main(int argc, char **argv)
 
     /// Preenchendo vetor de pan e tilt primeiro para a camera
     ///
-    ros::Time tini = ros::Time::now();
     // Pontos de observacao em tilt
-    vector<float> tilts_camera_deg {deg_min_tilt, deg_hor_tilt, -30.0f, deg_max_tilt};
-    ntilts = tilts_camera_deg.size();
-    // Pontos de observacao em pan
+    int step_tilt = 15;
+    ntilts = int(abs(ds->deg_max_tilt - ds->deg_min_tilt))/step_tilt + 2;
+    vector<float> tilts_camera_deg;
+    for(int j=0; j < ntilts; j++)
+        tilts_camera_deg.push_back(ds->deg_min_tilt - float(j*step_tilt));
+//    vector<float> tilts_camera_deg{0.0};
+//    ntilts = tilts_camera_deg.size(); // Para reforcar
+   // Pontos de observacao em pan
     int vistas_pan = int(final_scanner_deg_pan - inicio_scanner_deg_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
+//    vector<float> pans_camera_deg{50};
     // Enchendo vetores de waypoints de imagem em deg e raw globais
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
             if(remainder(j, 2) == 0){
                 tilts_deg.push_back(tilts_camera_deg[i]);
-                tilts_raw.push_back(deg2raw(tilts_camera_deg[i], "tilt"));
+                tilts_raw.push_back(ds->deg2raw(tilts_camera_deg[i], "tilt"));
             } else {
                 tilts_deg.push_back(tilts_camera_deg[tilts_camera_deg.size() - 1 - i]);
-                tilts_raw.push_back(deg2raw(tilts_camera_deg[tilts_camera_deg.size() - 1 - i], "tilt"));
+                tilts_raw.push_back(ds->deg2raw(tilts_camera_deg[tilts_camera_deg.size() - 1 - i], "tilt"));
             }
             pans_deg.push_back(pans_camera_deg[j]);
-            pans_raw.push_back(deg2raw(pans_camera_deg[j], "pan"));
+            pans_raw.push_back(ds->deg2raw(pans_camera_deg[j], "pan"));
         }
     }
     // Inicia servico para mexer os servos
@@ -260,7 +236,6 @@ int main(int argc, char **argv)
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback   );
     ros::Subscriber sub_las = nh.subscribe("/livox/lidar"                    , 10, laserCallback );
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, servosCallback);
-    ros::Subscriber sub_imu = nh.subscribe("/imu"                            , 10, imuCallback   );
 
     // Enviando scanner para o inicio
     cmd.request.unit = "raw";
@@ -268,8 +243,8 @@ int main(int argc, char **argv)
     cmd.request.tilt_pos = tilts_raw[0];
 
     ros::Rate r(20);
-    ROS_WARN("Esperando a IMU !! ...");
-    while(sub_imu.getNumPublishers() == 0){
+    ROS_WARN("Esperando a Camera !! ...");
+    while(sub_cam.getNumPublishers() == 0){
         ros::spinOnce();
         r.sleep();
     }
@@ -299,16 +274,20 @@ int main(int argc, char **argv)
     cmd_led.request.led = 3;
     comando_leds.call(cmd_led);
 
-    ros::Time tempo_nuvem = ros::Time::now();
-
     while(ros::ok()){
 
         // Controlando aqui o caminho dos servos, ate chegar ao final
-        if(abs(pan - pans_raw[indice_posicao]) <= dentro && abs(tilt - tilts_raw[indice_posicao]) <= dentro && indice_posicao != pans_raw.size()){
+        if(abs(pan - pans_raw[indice_posicao]) <= dentro_pan && abs(tilt - tilts_raw[indice_posicao]) <= dentro_tilt && indice_posicao != pans_raw.size()){
+
+            // Fixar o servo nesse local, para nao tentar se ajustar enquanto captura
+            // Aguardar um tempo
+            for(int t=0; t<20; t++){
+                r.sleep();
+                ros::spinOnce();
+            }
 
             // Se estavamos mudando de vista, nao estamos mais
             if(mudando_vista) mudando_vista = false;
-            //sleep(4); // Garantir o servo no lugar
 
             // Se chegamos na primeira captura, indice 0, podemos comecar a capturar o laser
             if(!iniciar_laser) iniciar_laser = true;
@@ -321,14 +300,12 @@ int main(int argc, char **argv)
             }
             // Chavear a flag
             aquisitar_imagem_imu = false;
-            // Pegar o roll para essa vista em pan
-            float current_roll = 0;
             // Salvar quaternion para criacao da imagem 360 final
-            Matrix3f R360 = pc->euler2matrix(current_roll, -DEG2RAD(raw2deg(tilt, "tilt")), -DEG2RAD(raw2deg(pan, "pan")));
+            float roll_c = 0;
+            Matrix3f R360 = pc->euler2matrix(DEG2RAD(roll_c), -DEG2RAD(ds->raw2deg(tilt, "tilt")), -DEG2RAD(ds->raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
-            ros::Time tempo_s = ros::Time::now();
             string nome_imagem_atual;
             if(indice_posicao + 1 < 10)
                 nome_imagem_atual = "imagem_00"+std::to_string(indice_posicao+1);
@@ -346,11 +323,9 @@ int main(int argc, char **argv)
             pc->transformToCameraFrame(parcial);
             ROS_INFO("Filtrando nuvem parcial ...");
             // Excluindo pontos de leituras vazias
-            ros::Time tempo_f = ros::Time::now();
             pc->cleanMisreadPoints(parcial);
             // Colorir nuvem com todas as imagens
             ROS_INFO("Colorindo nuvem parcial ...");
-            ros::Time tempo_c = ros::Time::now();
             PointCloud<PointT>::Ptr parcial_color (new PointCloud<PointT>);
             parcial_color->resize(parcial->size());
 #pragma omp parallel for
@@ -371,8 +346,8 @@ int main(int argc, char **argv)
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
-            odom_cloud_out.pose.pose.position.x = -current_roll;
-            odom_cloud_out.pose.pose.position.y = DEG2RAD(raw2deg(tilt, "tilt"));
+            odom_cloud_out.pose.pose.position.x = roll_c;
+            odom_cloud_out.pose.pose.position.y = DEG2RAD(ds->raw2deg(tilt, "tilt"));
             odom_cloud_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
@@ -400,23 +375,18 @@ int main(int argc, char **argv)
                 cmd_led.request.led = 1; // LED continuo
                 comando_leds.call(cmd_led);
                 cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
-                cmd.request.tilt_pos = raw_hor_tilt;
+                cmd.request.tilt_pos = ds->raw_hor_tilt;
                 comando_motor.call(cmd);
 
                 // Criar a 360 crua
                 ROS_INFO("Processando imagem 360 ...");
                 pi->estimateRaw360(quaternions_panoramica, pc->getFocuses(1));
-                saveTimeFiles();
-                savePointFiles();
                 ROS_INFO("Processado e finalizado o Scan.");
 
                 // Avisar ao gerenciador global que acabamos
                 sleep(8);
-                srv_msg.request.state = 0;
-                if(switch_state_srv.call(srv_msg))
-                    ROS_INFO("Terminamos a aquisicao corretamente.");
                 // Mata todos os nos que estao rodando
-                system("rosnode kill camera livox_lidar_publisher multi_port_pepo scanner_space");
+                system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space");
 
             }
         } // Fim if estamos dentro do waypoint

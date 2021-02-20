@@ -40,7 +40,11 @@ typedef enum { kNoNeed, kNeedAck, kDelayAck } NeedAckType;
 
 typedef enum { kParseSuccess, kParseFail, kParseNeedMoreData } ParseResult;
 
-typedef enum { kFindLengthSuccess, kFindLengthContinue, kFindLengthError } FindLengthResult;
+typedef enum {
+  kFindLengthSuccess,
+  kFindLengthContinue,
+  kFindLengthError
+} FindLengthResult;
 
 typedef struct CommPacket {
   uint8_t packet_type;
@@ -56,9 +60,6 @@ typedef struct CommPacket {
   uint8_t *data;
   uint16_t data_len;
   uint32_t padding;
-  //  RequestPackCb *ack_request_cb;
-  //  uint32_t retry_times;
-  //  uint32_t timeout;
 } CommPacket;
 
 /** SDK Protocol info config */
@@ -68,9 +69,7 @@ typedef struct {
 } SdkProtocolConfig;
 
 /** NAME-0183 Protocol info config for gps */
-typedef struct {
-  void* data;
-} GpsProtocolConfig;
+typedef struct { void *data; } GpsProtocolConfig;
 
 typedef struct {
   uint8_t type;
@@ -84,9 +83,10 @@ class Protocol {
  public:
   virtual ~Protocol() = default;
 
-  virtual int32_t ParsePacket(const uint8_t *i_buf, uint32_t i_len, CommPacket *o_packet) = 0;
+  virtual int32_t ParsePacket(const uint8_t *i_buf, uint32_t i_len,
+                              CommPacket *o_packet) = 0;
 
-  virtual int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len, \
+  virtual int32_t Pack(uint8_t *o_buf, uint32_t o_buf_size, uint32_t *o_len,
                        const CommPacket &i_packet) = 0;
 
   virtual uint32_t GetPreambleLen() = 0;
@@ -102,5 +102,5 @@ class Protocol {
   virtual int32_t CheckPacket(const uint8_t *buf) = 0;
 };
 
-}  // namespace livox
+}  // namespace livox_ros
 #endif  // COMM_PROTOCOL_H_
