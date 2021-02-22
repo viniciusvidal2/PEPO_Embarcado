@@ -324,7 +324,7 @@ def ros_set_param():
 
     # Range 0 < X < 2500
     elif param == 'exposure_absolute':
-        is_exposure_auto = value = roslibpy.Param(ros, 'exposure_auto').get(callback=None, timeout=30)
+        is_exposure_auto = roslibpy.Param(ros, 'exposure_auto').get(callback=None, timeout=30)
 
         if 0 <= value <= 2500 and is_exposure_auto == 1:
             os.system('v4l2-ctl --set-ctrl=exposure_absolute=' + str(value))
@@ -351,7 +351,7 @@ def ros_set_param():
     elif param == 'white_balance_temperature':
         roslibpy.Param(ros, 'white_balance_temperature_auto').get(callback=None, timeout=30)
 
-        if 50 <= value <= 200:
+        if 2800 <= value <= 6000:
             os.system('v4l2-ctl --set-ctrl=white_balance_temperature=' + str(value))
 
     return jsonify(value)

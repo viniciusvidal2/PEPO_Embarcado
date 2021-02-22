@@ -44,7 +44,7 @@ ros::Publisher cl_pub;
 // estamos capturando objeto, portanto a imagem que vai ser publicada sera a virtual
 bool imagem_virtual_usuario = false;
 
-PointCloud<PointXYZ>::Ptr parcial, cloud_im_virtual;
+PointCloud<PointXYZ>::Ptr cloud_im_virtual;
 vector<PointCloud<PointXYZ>> clouds_im_virtual;
 
 int cont_imagem_virtual = 0;
@@ -83,17 +83,12 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
         *cloud_im_virtual += *cloud;
         cont_imagem_virtual++;
 
-        if(cont_imagem_virtual == 20){ // Se inteirar 20, adiciona no vetor
-            clouds_im_virtual.push_back(*cloud_im_virtual);
-            if(clouds_im_virtual.size() > 5) // Mais de X no vetor retira a mais antiga ja
-                clouds_im_virtual.erase(clouds_im_virtual.begin());
-            for(auto c:clouds_im_virtual) // Soma todas as ultimas vistas para mandar pro usuario
-                *parcial += c;
+        if(cont_imagem_virtual == 5){ // Se inteirar 5, ja projeta -> mais rapido a experiencia
 
             m.lock();
 
             // Transformando nuvem para o frame da camera
-            pc->transformToCameraFrame(parcial);
+            pc->transformToCameraFrame(cloud_im_virtual);
             // Colorir pontos com calibracao default para visualizacao rapida
             aquisitar_imagem = false;
             Mat temp_im;
@@ -101,9 +96,9 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             resize(temp_im, temp_im, Size(480, 270));
             // Imagem virtual iniciada
             Mat virtual_image(Size(480, 270), CV_8UC3, Scalar(0, 0, 0));
-            pc->getVirtualImage(parcial, temp_im, virtual_image, 4);
+            pc->getVirtualImage(cloud_im_virtual, temp_im, virtual_image, 4);
             // Poupar memoria da parcial
-            parcial->clear();
+            cloud_im_virtual->clear();
 
             aquisitar_imagem = true;
             m.unlock();
@@ -128,8 +123,6 @@ int main(int argc, char **argv)
     image_transport::ImageTransport it(nh);
 
     // Inicia nuvem parcial acumulada a cada passagem do laser
-    parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
-    parcial->header.frame_id  = "pepo";
     cloud_im_virtual = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     cloud_im_virtual->header.frame_id  = "pepo";
 

@@ -182,6 +182,10 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         aquisitando = true;
         aquisitar_imagem = true;
         res.result = 1;
+        // Mensagem fake para o aplicativo ser notificado de aquisicao
+        std_msgs::Float32 msg_feedback;
+        msg_feedback.data = 5;
+        feedback_pub.publish(msg_feedback);
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
     } else if (req.comando == 2) { // Acabamos de aquisitar
         fim_processo = true;
