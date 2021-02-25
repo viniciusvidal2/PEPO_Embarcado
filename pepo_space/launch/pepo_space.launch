@@ -2,9 +2,7 @@
 
 <arg name="visualizar" default="false"/>
 <arg name="pasta" default="Scanner_space"/>
-<arg name="inicio_pan" default="25"/>
-<arg name="fim_pan"    default="335"/>
-<arg name="step"       default="50"/>
+<arg name="step"       default="35"/>
 <arg name="qual"       default="2"/>
 
 <!--Lancar no do driver camera USB-->
@@ -20,10 +18,8 @@
 <!--Lancar scanner propriamente dito, online, edge-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>
-    <param name="inicio_pan" value="$(arg inicio_pan)"/>
-    <param name="fim_pan"    value="$(arg fim_pan)"   />
-    <param name="step"       value="$(arg step)"      />
-    <param name="qualidade"  value="$(arg qual)"      />
+    <param name="step"       value="$(arg step)"/>
+    <param name="qualidade"  value="$(arg qual)"/>
 </node>
 
 <node name="acc_space_node" pkg="fog" type="acc_space_node" output="screen">

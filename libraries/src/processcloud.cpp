@@ -7,23 +7,23 @@ ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
     //             0.041, 1449.4  , 579.4,
     //             0    ,    0    ,   1  ;
     // Matriz intrinseca com imagem em HD
-    K1 << 961.92,   0.1, 649.3,
-           -0.01, 955.2, 365.4,
-            0   ,    0 ,   1 ;
+    K1 << 978.34 ,  -0.013, 654.28,
+            0.054, 958.48 , 367.44,
+            0    ,   0    ,   1   ;
     // Matriz intrinseca com imagem em resolucao simplificada 480x270
-    K4 << 360.29  ,   0.0472, 243.18,
-            0.0157, 358.50  , 128.36,
-            0     ,   0     ,   1   ;
+    K4 << 241.60 ,  -0.025, 162.19,
+            0.073, 240.91 ,  92.41,
+            0    ,   0    ,   1   ;
     // Matriz extrinseca com imagem em HD
     Rt1.resize(3, 4);
-    Rt1 << 1, 0, 0,  0.05,
-           0, 1, 0, -0.004,
-           0, 0, 1,  0.05;
+    Rt1 << 1, 0, 0, -0.011,
+           0, 1, 0,  0.029,
+           0, 0, 1,  0.027;
     // Matriz extrinseca com imagem em resolucao simplificada 480x270
     Rt4.resize(3, 4);
-    Rt4 << 1, 0, 0,  0.05,
-           0, 1, 0, -0.004,
-           0, 0, 1,  0.05;
+    Rt4 << 1, 0, 0,  0.035,
+           0, 1, 0,  0.013,
+           0, 0, 1, -0.041;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ProcessCloud::~ProcessCloud(){
@@ -114,7 +114,7 @@ void ProcessCloud::cleanMisreadPoints(PointCloud<PointXYZ>::Ptr cloud){
     for(size_t i=0; i<cloud->size(); i++){
         // Tambem remover pontos muito proximos, que nao fazem sentido
         float d = sqrt(pow(cloud->points[i].x, 2) + pow(cloud->points[i].y, 2) + pow(cloud->points[i].z, 2));
-        if(((*cloud)[i].x == 0 && (*cloud)[i].y == 0 && (*cloud)[i].z == 0) || d <= 1 )
+        if(((*cloud)[i].x == 0 && (*cloud)[i].y == 0 && (*cloud)[i].z == 0) || d <= 2 )
             indices->indices.push_back(i);
     }
     // Extrair fora esses pontos

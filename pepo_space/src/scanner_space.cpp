@@ -153,16 +153,14 @@ int main(int argc, char **argv)
 
     // Pegando os parametros
     string nome_param;
-    int step = 30; // [DEG]
-    float inicio_scanner_deg_pan, final_scanner_deg_pan;
+    int step = 35; // [DEG]
+    float inicio_scanner_deg_pan = step/2, final_scanner_deg_pan = 360 - step/2;
     int qualidade; // Qualidade a partir de quanto tempo vamos parar em uma vista aquisitando laser e imagem
-    n_.param<string>("pasta", nome_param, string("Dados_PEPO"));
-    n_.param<int   >("step" , step      , 50                  );
-    n_.param<float >("inicio_pan", inicio_scanner_deg_pan, step/2      );
-    n_.param<float >("fim_pan"   , final_scanner_deg_pan , 360 - step/2);
-    n_.param<int   >("qualidade" , qualidade             , 2           );
-    inicio_scanner_deg_pan = (inicio_scanner_deg_pan ==   0) ? ds->deg_min_pan : inicio_scanner_deg_pan;
-    final_scanner_deg_pan  = (final_scanner_deg_pan  == 360) ? ds->deg_max_pan : final_scanner_deg_pan;
+    n_.param<string>("pasta", nome_param    , string("Dados_PEPO"));
+    n_.param<int   >("step" , step          , 35                  );
+    n_.param<int   >("qualidade" , qualidade, 2                   );
+    inicio_scanner_deg_pan = (inicio_scanner_deg_pan < ds->deg_min_pan) ? ds->deg_min_pan : inicio_scanner_deg_pan;
+    final_scanner_deg_pan  = (final_scanner_deg_pan  > ds->deg_max_pan) ? ds->deg_max_pan : final_scanner_deg_pan;
     if((final_scanner_deg_pan - inicio_scanner_deg_pan) < step || (final_scanner_deg_pan - inicio_scanner_deg_pan) < 0) final_scanner_deg_pan = inicio_scanner_deg_pan + step;
     switch(qualidade){
         case 1:

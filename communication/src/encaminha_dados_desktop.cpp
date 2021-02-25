@@ -93,9 +93,9 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             aquisitar_imagem = false;
             Mat temp_im;
             imptr->image.copyTo(temp_im);
-            resize(temp_im, temp_im, Size(480, 270));
+            resize(temp_im, temp_im, Size(320, 180));
             // Imagem virtual iniciada
-            Mat virtual_image(Size(480, 270), CV_8UC3, Scalar(0, 0, 0));
+            Mat virtual_image(Size(320, 180), CV_8UC3, Scalar(0, 0, 0));
             pc->getVirtualImage(cloud_im_virtual, temp_im, virtual_image, 4);
             // Poupar memoria da parcial
             cloud_im_virtual->clear();
@@ -104,7 +104,6 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             m.unlock();
 
             // Publicar imagem virtual
-            resize(virtual_image, virtual_image, Size(320, 180));
             cv_bridge::CvImage msg_out;
             msg_out.header   = msg->header;
             msg_out.encoding = sensor_msgs::image_encodings::BGR8;
