@@ -106,12 +106,13 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
     if(cont_aquisicao >= msg_angle->pose.pose.orientation.w){
         ROS_INFO("Processando todo o SFM otimizado ...");
         for(int i=0; i<pan_cameras.size(); i++){
-            // Calcula a matriz de rotacao da camera
+            // Calcula a matriz de pose da camera pelos angulos e offset
             float r = -msg_angle->pose.pose.position.x, t = -pitch_cameras[i], p = -pan_cameras[i]; // [RAD]
-            Matrix3f Rcam = pc->euler2matrix(r, t, p).inverse();
 
-            // Calcula centro da camera
-            Vector3f C = -Rcam.transpose()*pc->gettCam();
+            Matrix4f Tcam = Matrix4f::Identity();
+            Tcam.block<3,3>(0, 0) = pc->euler2matrix(r, t, p);
+            Tcam.block<3,1>(0, 3) = Tcam.block<3,3>(0, 0)*pc->gettCam();
+            Tcam = Tcam.inverse();
 
             // Escreve a linha e anota no vetor de linhas SFM
             string nome_imagem;
@@ -121,7 +122,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
                 nome_imagem = "imagem_0" +std::to_string(i+1)+".png";
             else
                 nome_imagem = "imagem_"  +std::to_string(i+1)+".png";
-            linhas_sfm.push_back(pc->escreve_linha_sfm(nome_imagem, Rcam, C));
+            linhas_sfm.push_back(pc->escreve_linha_sfm(nome_imagem, Tcam.block<3,3>(0, 0), Tcam.block<3,1>(0, 3)));
         }
         ROS_INFO("Salvando SFM e planta baixa final ...");
         pc->compileFinalSFM(linhas_sfm);
