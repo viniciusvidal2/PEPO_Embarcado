@@ -7,6 +7,7 @@
 
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
+#include <sensor_msgs/Imu.h>
 
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
@@ -71,6 +72,7 @@ PointCloud<PointXYZ>::Ptr parcial;
 int pan, tilt;
 // Valor dos angulos que vem da IMU, em RAD
 float roll, pitch;
+float roll_lpf, tilt_lpf;
 // Vetor de odometrias para cada imagem - somente tilt ja devia ser suficiente
 vector<int> tilts_imagens_pan_atual;
 // Vetor com todos os quaternions para fazer a panoramica
@@ -123,6 +125,19 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
+}
+
+/// Callback IMU
+///
+void imuCallback(const sensor_msgs::ImuConstPtr &msg_imu){
+    // Isolar os componentes xyz da aceleracao
+    Vector3d imu{msg_imu->linear_acceleration.x, msg_imu->linear_acceleration.y, msg_imu->linear_acceleration.z};
+    // Calcular roll e tilt - ambos de -90 a 90 - tilt positivo olhando para cima - roll positivo girando para direita
+    double r = asin(imu(1)/imu.norm()), t = asin(imu(0)/imu.norm()); // [RAD]
+    // Passar filtro passa baixa sobre variaveis finais
+    roll_lpf = 0.93*roll_lpf + 0.07*r;
+    tilt_lpf = 0.93*tilt_lpf + 0.07*t;
+//    ROS_INFO("TILT: %.4f     ROLL: %.4f", 180/M_PI*tilt_lpf, 180/M_PI*roll_lpf);
 }
 
 /// Callback do laser
@@ -234,6 +249,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_cam = nh.subscribe("/camera/image_raw"               , 10, camCallback   );
     ros::Subscriber sub_las = nh.subscribe("/livox/lidar"                    , 10, laserCallback );
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, servosCallback);
+    ros::Subscriber sub_imu = nh.subscribe("/livox/imu"                      , 10, imuCallback   );
 
     // Enviando scanner para o inicio
     cmd.request.unit = "raw";
@@ -299,8 +315,8 @@ int main(int argc, char **argv)
             // Chavear a flag
             aquisitar_imagem_imu = false;
             // Salvar quaternion para criacao da imagem 360 final
-            float roll_c = 0;
-            Matrix3f R360 = pc->euler2matrix(DEG2RAD(roll_c), -DEG2RAD(ds->raw2deg(tilt, "tilt")), -DEG2RAD(ds->raw2deg(pan, "pan")));
+//            Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(ds->raw2deg(tilt, "tilt")), -DEG2RAD(ds->raw2deg(pan, "pan")));
+            Matrix3f R360 = pc->euler2matrix(roll_lpf, tilt_lpf, -DEG2RAD(ds->raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
             // Salvar a imagem na pasta certa
@@ -337,16 +353,16 @@ int main(int argc, char **argv)
             // Transformando segundo o pitch e roll vindos da imu e pan vindo do servo
             transformPointCloud<PointT>(*parcial_color, *parcial_color, Vector3f::Zero(), q360);
 
-            // Publicar tudo para a fog - nuvem e odometria
+            // Publicar tudo para a fog - nuvem e odometria (a mesma que manda a nuvem para o lugar certo, a fog inverte p/ camera)
             ROS_INFO("Publicando nuvem e odometria ...");
             sensor_msgs::PointCloud2 msg_out;
             toROSMsg(*parcial_color, msg_out);
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
-            odom_cloud_out.pose.pose.position.x = roll_c;
-            odom_cloud_out.pose.pose.position.y = DEG2RAD(ds->raw2deg(tilt, "tilt"));
-            odom_cloud_out.pose.pose.position.z = pan; // So o pan vai em RAW para a fog melhorar
+            odom_cloud_out.pose.pose.position.x = roll_lpf;
+            odom_cloud_out.pose.pose.position.y = tilt_lpf; //DEG2RAD(ds->raw2deg(tilt, "tilt"));
+            odom_cloud_out.pose.pose.position.z = -DEG2RAD(ds->raw2deg(pan, "pan"));
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
             odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
             odom_cloud_out.pose.pose.orientation.y = float(indice_posicao);  // Posicao atual na aquisicao

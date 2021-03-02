@@ -39,8 +39,8 @@ ProcessCloud *pc;
 PointCloud<PointT>::Ptr acc;
 // Nome da pasta que vamos trabalhar
 string pasta;
-// Poses das cameras para aquela aquisicao [DEG]
-vector<float> pan_cameras, pitch_cameras;
+// Poses das cameras para aquela aquisicao [RAD]
+vector<float> pan_cameras, tilt_cameras, roll_cameras;
 // Vetor com linhas do arquivo NVM
 vector<string> linhas_sfm;
 // Quantos tilts estao ocorrendo por pan, e contador de quantos ja ocorreram
@@ -81,9 +81,11 @@ void saveTempCloud(PointCloud<PointT>::Ptr cloud, int n){
 /// Callback do laser e odometria sincronizado
 ///
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr& msg_angle){
-    // As mensagens trazem angulos em unidade RAD, exceto pan
-    pan_cameras.push_back(DEG2RAD(ds->raw2deg(int(msg_angle->pose.pose.position.z), "pan")));
-    pitch_cameras.push_back(msg_angle->pose.pose.position.y);
+    // As mensagens trazem angulos em unidade RAD
+    pan_cameras.emplace_back(msg_angle->pose.pose.position.z);
+    tilt_cameras.emplace_back(msg_angle->pose.pose.position.y);
+    roll_cameras.emplace_back(msg_angle->pose.pose.position.x);
+
     // Atualiza a quantidade de tilts que estamos esperando
     ntilts = int(msg_angle->pose.pose.orientation.x);
 
@@ -107,10 +109,8 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
         ROS_INFO("Processando todo o SFM otimizado ...");
         for(int i=0; i<pan_cameras.size(); i++){
             // Calcula a matriz de pose da camera pelos angulos e offset
-            float r = -msg_angle->pose.pose.position.x, t = -pitch_cameras[i], p = -pan_cameras[i]; // [RAD]
-
             Matrix4f Tcam = Matrix4f::Identity();
-            Tcam.block<3,3>(0, 0) = pc->euler2matrix(r, t, p);
+            Tcam.block<3,3>(0, 0) = pc->euler2matrix(roll_cameras[i], tilt_cameras[i], pan_cameras[i]);
             Tcam.block<3,1>(0, 3) = Tcam.block<3,3>(0, 0)*pc->gettCam();
             Tcam = Tcam.inverse();
 
