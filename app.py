@@ -44,7 +44,6 @@ def post_acquisition_cancel():
 
     os.system('rosnode kill camera')
     os.system('rosnode kill imagem_lr_app')
-    os.system('rosnode kill imu_node')
     os.system('rosnode kill livox_lidar_publisher')
     os.system('rosnode kill multi_port_cap')
     os.system('rosnode kill scanner_space')

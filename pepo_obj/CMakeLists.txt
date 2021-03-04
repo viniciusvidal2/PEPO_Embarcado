@@ -5,7 +5,7 @@ project(pepo_obj)
 add_compile_options(-std=c++11)
 
 find_package(OpenCV REQUIRED)
-find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs nav_msgs pcl_ros laser_geometry message_generation
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge sensor_msgs std_msgs nav_msgs pcl_ros laser_geometry message_generation tf tf_conversions
 )
 find_package(OpenMP REQUIRED)
 if(OPENMP_FOUND)

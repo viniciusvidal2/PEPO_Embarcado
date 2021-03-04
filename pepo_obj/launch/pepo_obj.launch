@@ -2,10 +2,15 @@
 <arg name="pasta" default="Scanner_obj"/>
 
 <!--Lancar no do driver do laser-->
-<include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
+<include file="$(find livox_ros_driver)/launch/livox_lidar_msg.launch"/>
 
 <!--Lancar no do driver camera USB-->
 <include file="$(find cv_camera)/launch/calibrar_camera.launch"/>
+
+<!--Lancar no de LOAM do Horizon-->
+<include file="$(find loam_horizon)/launch/loam_livox_horizon_imu.launch">
+    <arg name="rviz" value="false"/>
+</include>
 
 <!--Lancar scanner propriamente dito, online-->
 <node name="scanner_obj" pkg="pepo_obj" type="scanner_obj" output="screen">

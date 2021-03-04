@@ -137,7 +137,6 @@ void imuCallback(const sensor_msgs::ImuConstPtr &msg_imu){
     // Passar filtro passa baixa sobre variaveis finais
     roll_lpf = 0.93*roll_lpf + 0.07*r;
     tilt_lpf = 0.93*tilt_lpf + 0.07*t;
-//    ROS_INFO("TILT: %.4f     ROLL: %.4f", 180/M_PI*tilt_lpf, 180/M_PI*roll_lpf);
 }
 
 /// Callback do laser
@@ -268,7 +267,7 @@ int main(int argc, char **argv)
         r.sleep();
     }
     ROS_INFO("Servos comunicando e indo para a posicao inicial ...");
-    sleep(6); // Esperar os servos pararem de balancar e driver de imagem ligar
+    ros::Duration(6).sleep(); // Esperar os servos pararem de balancar e driver de imagem ligar
 
     // Inicia classe de processo de nuvens e imagens
     pc = new ProcessCloud (pasta);
@@ -398,7 +397,7 @@ int main(int argc, char **argv)
                 ROS_INFO("Processado e finalizado o Scan.");
 
                 // Avisar ao gerenciador global que acabamos
-                sleep(8);
+                ros::Duration(8).sleep();
                 // Mata todos os nos que estao rodando
                 system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space");
 

@@ -7,8 +7,16 @@
 #include <math.h>
 
 #include <std_msgs/Float32.h>
+#include <livox_ros_driver/CustomMsg.h>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl_ros/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+#include <tf/transform_listener.h>
+#include <tf_conversions/tf_eigen.h>
 
 #include "../../libraries/include/processcloud.h"
 #include "../../libraries/include/processimages.h"
@@ -16,6 +24,11 @@
 
 #include "led_control/LED.h"
 #include "communication/state.h"
+
+#include <dynamixel_workbench_msgs/DynamixelCommand.h>
+#include <dynamixel_workbench_msgs/DynamixelInfo.h>
+#include <dynamixel_workbench_msgs/JointCommand.h>
+#include <dynamixel_workbench_msgs/DynamixelState.h>
 
 /// Namespaces
 ///
@@ -35,7 +48,7 @@ cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
-int contador_nuvem = 0, N = 50; // Quantas nuvens aquisitar em cada parcial
+int contador_nuvem = 0, N = 40; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
 ProcessCloud *pc;
 ProcessImages *pi;
@@ -43,6 +56,7 @@ ProcessImages *pi;
 ros::Publisher cloud_pub;
 // Nuvem de pontos parciais
 PointCloud<PointXYZ>::Ptr parcial;
+PointCloud<PointT>::Ptr acc;
 // Testando sincronizar subscribers por mutex
 Mutex m;
 // Contador de aquisicoes - usa tambem para salvar no lugar certo
@@ -50,6 +64,17 @@ int cont_aquisicao = 0;
 int cont_imagem_virtual = 0;
 // Publisher para feedback
 ros::Publisher feedback_pub;
+// Odometria vinda da LOAM
+Quaternionf qloam;
+Vector3f tloam;
+// Controle se servos estao travados - se existe o no publicando
+bool servos_locked = false;
+int stab_servo = 0;
+// Servico para mover os servos
+ros::ServiceClient comando_motor;
+dynamixel_workbench_msgs::JointCommand cmd;
+// Cameras para o sfm
+vector<string> cameras;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 string create_folder(string p){
@@ -86,18 +111,63 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
     }
 }
 
+/// Callback odometria LOAM
+///
+void loamCallback(const nav_msgs::OdometryConstPtr& msg){
+    // Atualizar ate o ponto que a nuvem parcial esta totalmente acumulada
+    if(contador_nuvem != N){
+        qloam.w() = msg->pose.pose.orientation.w;
+        qloam.x() = msg->pose.pose.orientation.x;
+        qloam.y() = msg->pose.pose.orientation.y;
+        qloam.z() = msg->pose.pose.orientation.z;
+        tloam << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
+    }
+}
+
+/// Callback dos servos
+///
+void servosCallback(const nav_msgs::OdometryConstPtr& msg){
+
+    cmd.request.unit = "raw";
+    cmd.request.pan_pos  = msg->pose.pose.position.x;
+    cmd.request.tilt_pos = msg->pose.pose.position.y;
+
+    // Se os servos estao travados, libera leitura de imagem e laser nos callbacks
+    if(!servos_locked)
+        stab_servo++;
+    if(!servos_locked && stab_servo == 10){
+        int ret = comando_motor.call(cmd);
+        ros::Duration(1.5).sleep();
+        servos_locked = true;
+        stab_servo = 0;
+    }
+
+}
+
 /// Callback do laser
 ///
-void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
-    // Ler a mensagem e acumular na nuvem total por N vezes quando aquisitando
+void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
+    // Ler a mensagem customizada do livox e converter para point cloud
     PointCloud<PointXYZ>::Ptr cloud (new PointCloud<PointXYZ>());
-    fromROSMsg (*msg, *cloud);
+    cloud->resize(msg->point_num);
+#pragma omp parallel for
+    for(size_t i = 0; i < msg->point_num; ++i){
+      PointXYZ pt;
+      pt.x = msg->points[i].x; pt.y = msg->points[i].y; pt.z = msg->points[i].z;
+      cloud->points[i] = pt;
+    }
+
     pc->cleanMisreadPoints(cloud);
     // Encaminha para o no de comunicacao que cria imagem virtual
-    cloud_pub.publish(*msg);
+    sensor_msgs::PointCloud2 comm_msg;
+    toROSMsg(*cloud, comm_msg);
+    cloud_pub.publish(comm_msg);
 
-    if(aquisitando){
+    // Acumular na nuvem total por N vezes quando aquisitando
+    if(aquisitando && servos_locked){
         *parcial += *cloud;
+        // Atualizar contador de nuvem
+        contador_nuvem++;
         // A nuvem ainda nao foi acumulada, frizar isso
         aquisitar_imagem = true;
         // Se total acumulado, travar o resto e trabalhar
@@ -132,46 +202,61 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1);
             pc->cleanNotColoredPoints(cloud_color);
+
+            // Transformar a nuvem para local inicial aproximado
+            Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
+            transformPointCloud<PointT>(*cloud_color, *cloud_color, tloam, qloam*qcamframe.inverse());
+
             // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
             Mat im2save;
             min_blur_im.copyTo(im2save);
             min_blur_im.release();
+            string nome_imagem;
             if(cont_aquisicao < 10){
-                pi->saveImage(im2save, "imagem_00"+std::to_string(cont_aquisicao));
+                nome_imagem = "imagem_00"+std::to_string(cont_aquisicao);
                 pc->saveCloud(cloud_color, "pf_00"+std::to_string(cont_aquisicao));
             } else if(cont_aquisicao < 100) {
-                pi->saveImage(im2save, "imagem_0"+std::to_string(cont_aquisicao));
+                nome_imagem = "imagem_0"+std::to_string(cont_aquisicao);
                 pc->saveCloud(cloud_color, "pf_0"+std::to_string(cont_aquisicao));
             } else {
-                pi->saveImage(im2save, "imagem_"+std::to_string(cont_aquisicao));
+                nome_imagem = "imagem_"+std::to_string(cont_aquisicao);
                 pc->saveCloud(cloud_color, "pf_"+std::to_string(cont_aquisicao));
             }
-            //////////////////////
-            // Zerar contador de nuvens da parcial e anunciar 100%
-            contador_nuvem = 0;
+            pi->saveImage(im2save, nome_imagem);
+
+            // Adicionar linha para o sfm
+            Vector3f tsfm = qcamframe.inverse()*pc->gettCam() + tloam;
+            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem, qloam.matrix(), tsfm));
+
             max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
 
-        } else {
-            contador_nuvem++;
+            // Acumular nuvem raw para o usuario
+            *acc += *cloud_color;
+
         }
 
         // Falar a porcentagem da aquisicao para o usuario
-        if(contador_nuvem % (N/5) == 0){
-            std_msgs::Float32 msg_feedback;
-            msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) > 1) ? 100.0 * float(contador_nuvem)/float(N) : 1;
-
-            if(msg_feedback.data == 100){
-                sleep(4);
-                feedback_pub.publish(msg_feedback);
-                sleep(3);
-                msg_feedback.data = 1;
-                feedback_pub.publish(msg_feedback);
-            } else {
-                feedback_pub.publish(msg_feedback);
-            }
+        std_msgs::Float32 msg_feedback;
+        msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) >= 1) ? 100.0 * float(contador_nuvem)/float(N) : 10;
+        if(contador_nuvem == N){
+            ros::Duration(2).sleep();
+            msg_feedback.data = 100.0;
+            feedback_pub.publish(msg_feedback);
+            ros::Duration(1).sleep();
+            msg_feedback.data = 1;
+            feedback_pub.publish(msg_feedback);
+            // Matar os servos ao terminar
+            int ans = system("rosnode kill multi_port_cap");
+            ans = system("rosnode kill multi_port_cap");
+            ans = system("rosnode kill multi_port_cap");
+            // Reseta o contador de nuvens aqui, mais seguro
+            contador_nuvem = 0;
+        } else {
+            feedback_pub.publish(msg_feedback);
         }
+
     }
 }
 
@@ -179,18 +264,37 @@ void laserCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
 ///
 bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Response &res){
     if(req.comando == 1){ // Havera mais uma nova aquisicao
+
+        // Liga os servos para nao moverem ali daquela posicao enquanto escaneia
+        int ans = system("nohup roslaunch dynamixel_workbench_controllers multi_port_cap.launch &");
+        servos_locked = false;
         aquisitando = true;
-        aquisitar_imagem = true;
-        res.result = 1;
+
         // Mensagem fake para o aplicativo ser notificado de aquisicao
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = 5;
         feedback_pub.publish(msg_feedback);
+
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
-    } else if (req.comando == 2) { // Acabamos de aquisitar
-        fim_processo = true;
         res.result = 1;
+
+    } else if (req.comando == 2) { // Acabamos de aquisitar
+
+        // Simplificar ali a nuvem acumulada
+        VoxelGrid<PointT> voxel;
+        voxel.setLeafSize(0.03, 0.03, 0.03);
+        voxel.setInputCloud(acc);
+        voxel.filter(*acc);
+        pc->saveCloud(acc, "acumulada");
+        // Salvar SFM final na pasta
+        pc->compileFinalSFM(cameras);
+
+        // Esperar e finalizar o processo
+        ros::Duration(5).sleep();
+        res.result = 1;
+        fim_processo = true;
         ROS_INFO("Finalizando o processo ...");
+
     } else {
         res.result = 0;
     }
@@ -228,6 +332,8 @@ int main(int argc, char **argv)
     // Inicia nuvem parcial acumulada a cada passagem do laser
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     parcial->header.frame_id  = "pepo";
+    acc = (PointCloud<PointT>::Ptr) new PointCloud<PointT>();
+    acc->header.frame_id  = "pepo";
 
     // Inicia classe de processo de nuvens
     pc = new ProcessCloud(pasta);
@@ -239,17 +345,27 @@ int main(int argc, char **argv)
     // Publicadores
     feedback_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
 
-    // Subscribers dessincronizados para mensagens de laser e imagem
-    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"     , 10, laserCallback);
-    ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw", 10, camCallback  );
+    // Subscribers dessincronizados para mensagens de laser, loam e imagem
+    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"       , 10, laserCallback);
+    ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw"  , 10, camCallback  );
+    ros::Subscriber sub_loam  = nh.subscribe("/aft_mapped_to_init", 10, loamCallback );
+    ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados", 1, servosCallback);
+
+    // Servico do motor
+    comando_motor = nh.serviceClient<dynamixel_workbench_msgs::JointCommand>("/joint_command");
 
     // Publisher da nuvem
-    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);
+    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);    
+
+    ros::Rate r(2);
+    while(sub_loam.getNumPublishers() < 1 && sub_cam.getNumPublishers() < 1){
+        ROS_INFO("Aguardando odometria segura vinda da LOAM ...");
+        r.sleep();
+    }
 
     ROS_INFO("Comecando a aquisicao ...");
     std_msgs::Float32 msg_feedback;
     msg_feedback.data = 1.0; // Para a camera liberar no aplicativo
-    ros::Rate r(2);
     for(int i=0; i<5; i++){
         feedback_pub.publish(msg_feedback);
         r.sleep();
@@ -258,8 +374,12 @@ int main(int argc, char **argv)
         r.sleep();
         ros::spinOnce();
 
+//        if(sub_dyn.getNumPublishers() == 0)
+//            servos_locked = false;
+
         if(fim_processo){
-            system("rosnode kill camera imagem_lr_app livox_lidar_publisher scanner_obj");
+            int ans = system("rosnode kill multi_port_cap");
+            ans = system("rosnode kill camera imagem_lr_app livox_lidar_publisher scanner_obj imu_process laserMapping laserOdometry livox_repub scanRegistration");
             ros::shutdown();
             break;
         }

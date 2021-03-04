@@ -16,7 +16,7 @@
   <param name="pan/id"               value="$(arg pan_id)"/>
   <param name="pan/moving_speed"     value="$(arg pan_moving_speed)"/>
 
-  <param name="tilt/device_name"      value="$(arg tilt_device_name)"/>-->
+  <param name="tilt/device_name"      value="$(arg tilt_device_name)"/>
   <param name="tilt/baud_rate"        value="$(arg tilt_baud_rate)"/>
   <param name="tilt/protocol_version" value="$(arg tilt_protocol_version)"/>
   <param name="tilt/id"               value="$(arg tilt_id)"/>

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(pepo_space)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
+set(CMAKE_BUILD_TYPE "Release")
 add_compile_options(-std=c++11)
 
 find_package(OpenCV REQUIRED)
