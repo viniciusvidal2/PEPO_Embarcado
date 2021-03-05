@@ -67,6 +67,7 @@ ros::Publisher feedback_pub;
 // Odometria vinda da LOAM
 Quaternionf qloam;
 Vector3f tloam;
+ros::Time stamp_ref_loam;
 // Controle se servos estao travados - se existe o no publicando
 bool servos_locked = false;
 int stab_servo = 0;
@@ -114,14 +115,14 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 /// Callback odometria LOAM
 ///
 void loamCallback(const nav_msgs::OdometryConstPtr& msg){
-    // Atualizar ate o ponto que a nuvem parcial esta totalmente acumulada
-    if(contador_nuvem != N){
-        qloam.w() = msg->pose.pose.orientation.w;
-        qloam.x() = msg->pose.pose.orientation.x;
-        qloam.y() = msg->pose.pose.orientation.y;
-        qloam.z() = msg->pose.pose.orientation.z;
-        tloam << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
-    }
+    // Atualizar sempre a odometria, guardar o ultimo stamp para sincronizar com o momento de salvar
+    // no callback do laser
+    qloam.w() = msg->pose.pose.orientation.w;
+    qloam.x() = msg->pose.pose.orientation.x;
+    qloam.y() = msg->pose.pose.orientation.y;
+    qloam.z() = msg->pose.pose.orientation.z;
+    tloam << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
+    stamp_ref_loam = msg->header.stamp;
 }
 
 /// Callback dos servos
@@ -135,7 +136,7 @@ void servosCallback(const nav_msgs::OdometryConstPtr& msg){
     // Se os servos estao travados, libera leitura de imagem e laser nos callbacks
     if(!servos_locked)
         stab_servo++;
-    if(!servos_locked && stab_servo == 10){
+    if(!servos_locked && stab_servo == 8){
         int ret = comando_motor.call(cmd);
         ros::Duration(1.5).sleep();
         servos_locked = true;
@@ -173,7 +174,6 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
         // Se total acumulado, travar o resto e trabalhar
         if(contador_nuvem == N){
             cont_aquisicao++;
-            m.lock();
             ROS_WARN("Aquisicao %d foi acumulada, processando ...", cont_aquisicao);
             // Vira a variavel de controle de recebimento de imagens e da nuvem
             aquisitar_imagem = false;
@@ -196,16 +196,24 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             PassThrough<PointT> pass;
             pass.setInputCloud(cloud_color);
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(0, 30); // Z metros de profundidade
+            pass.setFilterLimits(0, 40); // Z metros de profundidade
             pass.filter(*cloud_color);
             // Colorir pontos com calibracao default para visualizacao rapida
             ROS_WARN("Colorindo nuvem para salvar com parametros default ...");
             pc->colorCloudWithCalibratedImage(cloud_color, image_ptr->image, 1);
             pc->cleanNotColoredPoints(cloud_color);
 
+            // Aguardar atualizacao da odometria
+            ros::Rate rloam(20);
+            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) < 0.3){
+                rloam.sleep();
+                ros::spinOnce();
+            }
             // Transformar a nuvem para local inicial aproximado
             Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
-            transformPointCloud<PointT>(*cloud_color, *cloud_color, tloam, qloam*qcamframe.inverse());
+            Quaternionf qodo = qcamframe*qloam*qcamframe.inverse();
+            Vector3f todo = qcamframe*tloam;
+            transformPointCloud<PointT>(*cloud_color, *cloud_color, todo, qodo);
 
             // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
@@ -226,8 +234,8 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             pi->saveImage(im2save, nome_imagem);
 
             // Adicionar linha para o sfm
-            Vector3f tsfm = qcamframe.inverse()*pc->gettCam() + tloam;
-            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem, qloam.matrix(), tsfm));
+            Vector3f tsfm = qodo*(-pc->gettCam()) + todo;
+            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem, qodo.inverse().matrix(), -tsfm));
 
             max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
@@ -239,7 +247,7 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
 
         // Falar a porcentagem da aquisicao para o usuario
         std_msgs::Float32 msg_feedback;
-        msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) >= 1) ? 100.0 * float(contador_nuvem)/float(N) : 10;
+        msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) >= 25) ? 100.0 * float(contador_nuvem)/float(N) : 25;
         if(contador_nuvem == N){
             ros::Duration(2).sleep();
             msg_feedback.data = 100.0;
@@ -268,12 +276,20 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         // Liga os servos para nao moverem ali daquela posicao enquanto escaneia
         int ans = system("nohup roslaunch dynamixel_workbench_controllers multi_port_cap.launch &");
         servos_locked = false;
-        aquisitando = true;
 
         // Mensagem fake para o aplicativo ser notificado de aquisicao
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = 5;
         feedback_pub.publish(msg_feedback);
+        // Tempo para a odometria se estabilizar
+        ros::Duration(5).sleep();
+        msg_feedback.data = 10;
+        feedback_pub.publish(msg_feedback);
+        ros::Duration(7).sleep();
+        msg_feedback.data = 15;
+        feedback_pub.publish(msg_feedback);
+
+        aquisitando = true;
 
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
         res.result = 1;
@@ -357,10 +373,22 @@ int main(int argc, char **argv)
     // Publisher da nuvem
     cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);    
 
+    // Ver se realmente ha odometria
     ros::Rate r(2);
     while(sub_loam.getNumPublishers() < 1 && sub_cam.getNumPublishers() < 1){
         ROS_INFO("Aguardando odometria segura vinda da LOAM ...");
         r.sleep();
+    }
+    // Aguarda se realmente os dados de odometria estao sendo calculados
+    qloam.w() = 1000; qloam.x() = 1000;
+    tloam << 1000, 1000, 1000;
+    ros::Duration(2).sleep();
+    ros::spinOnce();
+    while(qloam.w() == 1000 && qloam.x() == 1000 && tloam[0] == 1000){
+        int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
+        ros::Duration(4).sleep();
+        ans = system("roslaunch loam_horizon loam_livox_horizon_imu.launch");
+        ros::Duration(10).sleep();
     }
 
     ROS_INFO("Comecando a aquisicao ...");
@@ -373,9 +401,6 @@ int main(int argc, char **argv)
     while(ros::ok()){
         r.sleep();
         ros::spinOnce();
-
-//        if(sub_dyn.getNumPublishers() == 0)
-//            servos_locked = false;
 
         if(fim_processo){
             int ans = system("rosnode kill multi_port_cap");
