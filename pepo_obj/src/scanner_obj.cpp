@@ -47,6 +47,8 @@ cv_bridge::CvImagePtr image_ptr; // Ponteiro para imagem da camera
 // Imagem com menor blur, para a maior covariancia encontrada no escaneamento
 Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
+ros::Time time_im_ref;
+// Flags de controle
 bool aquisitando = false, aquisitar_imagem = false, fim_processo = false;
 int contador_nuvem = 0, N = 40; // Quantas nuvens aquisitar em cada parcial
 // Classe de processamento de nuvens
@@ -104,10 +106,11 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
         Laplacian(lap_gray, lap, CV_16SC1, 3, 1, 0, cv::BORDER_DEFAULT);
         Scalar m, s;
         meanStdDev(lap, m, s, Mat());
-        // Checar contra maior variancia
-        if(s[0] > max_var){
+        // Checar contra maior variancia ou o tempo para tentar pegar a mais recente possivel alem de a menos borrada
+        if( s[0] > max_var || abs((msg->header.stamp - time_im_ref).toSec()) > 1 ){
             image_ptr->image.copyTo(min_blur_im);
             max_var = s[0];
+            time_im_ref = msg->header.stamp;
         }
     }
 }
@@ -141,6 +144,9 @@ void servosCallback(const nav_msgs::OdometryConstPtr& msg){
         ros::Duration(1.5).sleep();
         servos_locked = true;
         stab_servo = 0;
+        // Libera tambem a camera aqui e o tempo que comecamos a aquisicao
+        aquisitar_imagem = true;
+        time_im_ref = msg->header.stamp;
     }
 
 }
@@ -168,9 +174,7 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
     if(aquisitando && servos_locked){
         *parcial += *cloud;
         // Atualizar contador de nuvem
-        contador_nuvem++;
-        // A nuvem ainda nao foi acumulada, frizar isso
-        aquisitar_imagem = true;
+        contador_nuvem++;        
         // Se total acumulado, travar o resto e trabalhar
         if(contador_nuvem == N){
             cont_aquisicao++;
@@ -205,10 +209,11 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
 
             // Aguardar atualizacao da odometria
             ros::Rate rloam(20);
-            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) < 0.3){
+            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) > 0.3){
                 rloam.sleep();
                 ros::spinOnce();
             }
+
             // Transformar a nuvem para local inicial aproximado
             Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
             Quaternionf qodo = qcamframe*qloam*qcamframe.inverse();
@@ -235,12 +240,16 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
 
             // Adicionar linha para o sfm
             Vector3f tsfm = qodo*(-pc->gettCam()) + todo;
-            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem, qodo.inverse().matrix(), -tsfm));
+            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem+".png", qodo.inverse().matrix(), qodo.inverse()*(-tsfm)));
 
             max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
 
             // Acumular nuvem raw para o usuario
+            VoxelGrid<PointT> voxel;
+            voxel.setLeafSize(0.03, 0.03, 0.03);
+            voxel.setInputCloud(cloud_color);
+            voxel.filter(*cloud_color);
             *acc += *cloud_color;
 
         }
@@ -282,10 +291,17 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         msg_feedback.data = 5;
         feedback_pub.publish(msg_feedback);
         // Tempo para a odometria se estabilizar
-        ros::Duration(5).sleep();
+        ros::Rate rwait_loam(20);
+        for(int i=0; i<20; i++){
+            rwait_loam.sleep();
+            ros::spinOnce();
+        }
         msg_feedback.data = 10;
         feedback_pub.publish(msg_feedback);
-        ros::Duration(7).sleep();
+        for(int i=0; i<20; i++){
+            rwait_loam.sleep();
+            ros::spinOnce();
+        }
         msg_feedback.data = 15;
         feedback_pub.publish(msg_feedback);
 
@@ -355,23 +371,11 @@ int main(int argc, char **argv)
     pc = new ProcessCloud(pasta);
     pi = new ProcessImages(pasta);
 
-    // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
-    ros::ServiceServer procedimento = nh.advertiseService("/capturar_obj", capturar_obj);
-
-    // Publicadores
-    feedback_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
-
     // Subscribers dessincronizados para mensagens de laser, loam e imagem
-    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"       , 10, laserCallback);
+    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"       ,  1, laserCallback);
     ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw"  , 10, camCallback  );
     ros::Subscriber sub_loam  = nh.subscribe("/aft_mapped_to_init", 10, loamCallback );
     ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados", 1, servosCallback);
-
-    // Servico do motor
-    comando_motor = nh.serviceClient<dynamixel_workbench_msgs::JointCommand>("/joint_command");
-
-    // Publisher da nuvem
-    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);    
 
     // Ver se realmente ha odometria
     ros::Rate r(2);
@@ -382,14 +386,34 @@ int main(int argc, char **argv)
     // Aguarda se realmente os dados de odometria estao sendo calculados
     qloam.w() = 1000; qloam.x() = 1000;
     tloam << 1000, 1000, 1000;
-    ros::Duration(2).sleep();
-    ros::spinOnce();
+    for(int i=0; i<6; i++){
+        r.sleep();
+        ros::spinOnce();
+    }
     while(qloam.w() == 1000 && qloam.x() == 1000 && tloam[0] == 1000){
         int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
-        ros::Duration(4).sleep();
+        for(int i=0; i<8; i++){
+            r.sleep();
+            ros::spinOnce();
+        }
         ans = system("roslaunch loam_horizon loam_livox_horizon_imu.launch");
-        ros::Duration(10).sleep();
+        for(int i=0; i<20; i++){
+            r.sleep();
+            ros::spinOnce();
+        }
     }
+
+    // Inicia servidor que recebe o comando sobre como proceder com a aquisicao
+    ros::ServiceServer procedimento = nh.advertiseService("/capturar_obj", capturar_obj);
+
+    // Publicadores
+    feedback_pub = nh.advertise<std_msgs::Float32>("/feedback_scan", 10);
+
+    // Servico do motor
+    comando_motor = nh.serviceClient<dynamixel_workbench_msgs::JointCommand>("/joint_command");
+
+    // Publisher da nuvem
+    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/cloud_virtual_image", 10);
 
     ROS_INFO("Comecando a aquisicao ...");
     std_msgs::Float32 msg_feedback;
