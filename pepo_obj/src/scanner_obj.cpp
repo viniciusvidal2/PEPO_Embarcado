@@ -67,9 +67,10 @@ int cont_imagem_virtual = 0;
 // Publisher para feedback
 ros::Publisher feedback_pub;
 // Odometria vinda da LOAM
-Quaternionf qloam;
-Vector3f tloam;
+Quaternionf qloam, qref;
+Vector3f tloam, tref;
 ros::Time stamp_ref_loam;
+ros::Subscriber sub_loam;
 // Controle se servos estao travados - se existe o no publicando
 bool servos_locked = false;
 int stab_servo = 0;
@@ -163,7 +164,6 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
       pt.x = msg->points[i].x; pt.y = msg->points[i].y; pt.z = msg->points[i].z;
       cloud->points[i] = pt;
     }
-
     pc->cleanMisreadPoints(cloud);
     // Encaminha para o no de comunicacao que cria imagem virtual
     sensor_msgs::PointCloud2 comm_msg;
@@ -214,10 +214,18 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
                 ros::spinOnce();
             }
 
+            // Renovar a odometria de referencia no frame do laser
+            qref = qloam * qref;
+            tref = tloam + tref;
+
+            // Desligar a odometria para resetar o atraso do processamento
+            int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
+            ros::Duration(2).sleep();
+
             // Transformar a nuvem para local inicial aproximado
             Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
-            Quaternionf qodo = qcamframe*qloam*qcamframe.inverse();
-            Vector3f todo = qcamframe*tloam;
+            Quaternionf qodo = qcamframe*qref*qcamframe.inverse();
+            Vector3f todo = qcamframe*tref;
             transformPointCloud<PointT>(*cloud_color, *cloud_color, todo, qodo);
 
             // Salvar dados parciais na pasta no Desktop
@@ -258,14 +266,20 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) >= 25) ? 100.0 * float(contador_nuvem)/float(N) : 25;
         if(contador_nuvem == N){
+            // Religar odometria
+            int ans = system("nohup roslaunch loam_horizon loam_livox_horizon_imu.launch rviz:=false &");
             ros::Duration(2).sleep();
+            while(sub_loam.getNumPublishers() < 1){
+                ros::Duration(0.2).sleep();
+                ros::spinOnce();
+            }
             msg_feedback.data = 100.0;
             feedback_pub.publish(msg_feedback);
             ros::Duration(1).sleep();
             msg_feedback.data = 1;
             feedback_pub.publish(msg_feedback);
-            // Matar os servos ao terminar
-            int ans = system("rosnode kill multi_port_cap");
+            // Matar os servos ao terminar e religar odometria
+            ans = system("rosnode kill multi_port_cap");
             ans = system("rosnode kill multi_port_cap");
             ans = system("rosnode kill multi_port_cap");
             // Reseta o contador de nuvens aqui, mais seguro
@@ -372,10 +386,10 @@ int main(int argc, char **argv)
     pi = new ProcessImages(pasta);
 
     // Subscribers dessincronizados para mensagens de laser, loam e imagem
-    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"       ,  1, laserCallback);
-    ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw"  , 10, camCallback  );
-    ros::Subscriber sub_loam  = nh.subscribe("/aft_mapped_to_init", 10, loamCallback );
-    ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados", 1, servosCallback);
+    ros::Subscriber sub_laser = nh.subscribe("/livox/lidar"       , 10 , laserCallback);
+    ros::Subscriber sub_cam   = nh.subscribe("/camera/image_raw"  , 10 , camCallback  );
+    ros::Subscriber sub_dyn   = nh.subscribe("/dynamixel_angulos_sincronizados", 2, servosCallback);
+    sub_loam = nh.subscribe("/aft_mapped_to_init", 100, loamCallback );
 
     // Ver se realmente ha odometria
     ros::Rate r(2);
@@ -384,7 +398,7 @@ int main(int argc, char **argv)
         r.sleep();
     }
     // Aguarda se realmente os dados de odometria estao sendo calculados
-    qloam.w() = 1000; qloam.x() = 1000;
+    qloam.w() = 1000; qloam.x() = 1000; qref.w() = 1;
     tloam << 1000, 1000, 1000;
     for(int i=0; i<6; i++){
         r.sleep();
