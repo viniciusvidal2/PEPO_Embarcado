@@ -8,6 +8,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/NavSatFix.h>
 
 #include <dynamixel_workbench_msgs/DynamixelCommand.h>
 #include <dynamixel_workbench_msgs/DynamixelInfo.h>
@@ -84,6 +85,8 @@ cv_bridge::CvImagePtr image_ptr;
 // Imagem com menor blur, para a maior covariancia encontrada no escaneamento
 Mat min_blur_im, lap, lap_gray;
 float max_var = 0;
+// Confirmacao de sinal de GPS
+bool gps_signal = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 string create_folder(string p){
@@ -137,6 +140,12 @@ void imuCallback(const sensor_msgs::ImuConstPtr &msg_imu){
     // Passar filtro passa baixa sobre variaveis finais
     roll_lpf = 0.93*roll_lpf + 0.07*r;
     tilt_lpf = 0.93*tilt_lpf + 0.07*t;
+}
+
+/// Callback IMU
+///
+void gpsCallback(const sensor_msgs::NavSatFixConstPtr &msg_gps){
+    gps_signal = (msg_gps->latitude == 0) ? false : true;
 }
 
 /// Callback do laser
@@ -249,6 +258,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_las = nh.subscribe("/livox/lidar"                    , 10, laserCallback );
     ros::Subscriber sub_dyn = nh.subscribe("/dynamixel_angulos_sincronizados", 10, servosCallback);
     ros::Subscriber sub_imu = nh.subscribe("/livox/imu"                      , 10, imuCallback   );
+    ros::Subscriber sub_gps = nh.subscribe("/gps"                            , 10, gpsCallback   );
 
     // Enviando scanner para o inicio
     cmd.request.unit = "raw";
@@ -268,6 +278,12 @@ int main(int argc, char **argv)
     }
     ROS_INFO("Servos comunicando e indo para a posicao inicial ...");
     ros::Duration(6).sleep(); // Esperar os servos pararem de balancar e driver de imagem ligar
+
+    while(!gps_signal){ // Aguardar o GPS enviar coordenadas validas
+        ROS_INFO("Aguardando GPS ...");
+        ros::spinOnce();
+        r.sleep();
+    }
 
     // Inicia classe de processo de nuvens e imagens
     pc = new ProcessCloud (pasta);
@@ -399,7 +415,7 @@ int main(int argc, char **argv)
                 // Avisar ao gerenciador global que acabamos
                 ros::Duration(8).sleep();
                 // Mata todos os nos que estao rodando
-                system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space");
+                int ans = system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space gps_node");
 
             }
         } // Fim if estamos dentro do waypoint

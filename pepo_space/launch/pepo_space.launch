@@ -15,6 +15,9 @@
 <include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch">
 </include>
 
+<!--Lancar no do GPS-->
+<node name="gps_node" pkg="gps_uart" type="gps.py"/>
+
 <!--Lancar scanner propriamente dito, online, edge-->
 <node name="scanner_space" pkg="pepo_space" type="scanner_space" output="screen">
     <param name="pasta" value="$(arg pasta)"/>

@@ -4,7 +4,7 @@
 cd /home/cap/pepo_ws
 
 # Compilar dependencias menores
-catkin_make --pkg cv_camera dynamixel_workbench_controllers dynamixel_workbench_msgs led_control livox_ros_driver
+catkin_make --pkg cv_camera dynamixel_workbench_controllers dynamixel_workbench_msgs led_control livox_ros_driver gps_uart
 
 # Dormir um pouco para esperar iniciar
 sleep 1s

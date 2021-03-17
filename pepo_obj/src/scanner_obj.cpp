@@ -67,8 +67,11 @@ int cont_imagem_virtual = 0;
 // Publisher para feedback
 ros::Publisher feedback_pub;
 // Odometria vinda da LOAM
-Quaternionf qloam, qref;
-Vector3f tloam, tref;
+//Quaternionf qloam, qref;
+//Vector3f tloam, tref;
+Matrix4f Tref  = Matrix4f::Identity();
+Matrix4f Tloam = Matrix4f::Identity();
+Matrix4f Tcamframe = Matrix4f::Identity();
 ros::Time stamp_ref_loam;
 ros::Subscriber sub_loam;
 // Controle se servos estao travados - se existe o no publicando
@@ -89,6 +92,13 @@ string create_folder(string p){
             mkdir(nome_atual.c_str(), 0777);
             return nome_atual;
         }
+    }
+}
+void do_sleep(float sec){
+    ros::Rate r(10);
+    for(int i=0; i<int(10*sec); i++){
+        r.sleep();
+        ros::spinOnce();
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -121,11 +131,16 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 void loamCallback(const nav_msgs::OdometryConstPtr& msg){
     // Atualizar sempre a odometria, guardar o ultimo stamp para sincronizar com o momento de salvar
     // no callback do laser
+    Quaternionf qloam;
+    Vector3f tloam;
     qloam.w() = msg->pose.pose.orientation.w;
     qloam.x() = msg->pose.pose.orientation.x;
     qloam.y() = msg->pose.pose.orientation.y;
     qloam.z() = msg->pose.pose.orientation.z;
     tloam << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
+    Tloam.block<3,3>(0, 0) = qloam.matrix();
+    Tloam.block<3,1>(0, 3) = tloam;
+    Tloam = Tcamframe*Tloam*Tcamframe.inverse();
     stamp_ref_loam = msg->header.stamp;
 }
 
@@ -140,9 +155,9 @@ void servosCallback(const nav_msgs::OdometryConstPtr& msg){
     // Se os servos estao travados, libera leitura de imagem e laser nos callbacks
     if(!servos_locked)
         stab_servo++;
-    if(!servos_locked && stab_servo == 8){
+    if(!servos_locked && stab_servo == 12){
         int ret = comando_motor.call(cmd);
-        ros::Duration(1.5).sleep();
+        do_sleep(5);
         servos_locked = true;
         stab_servo = 0;
         // Libera tambem a camera aqui e o tempo que comecamos a aquisicao
@@ -174,7 +189,9 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
     if(aquisitando && servos_locked){
         *parcial += *cloud;
         // Atualizar contador de nuvem
-        contador_nuvem++;        
+        contador_nuvem++;
+        // Matriz de Odometria atual (se for o momento)
+        Matrix4f Todo;
         // Se total acumulado, travar o resto e trabalhar
         if(contador_nuvem == N){
             cont_aquisicao++;
@@ -208,25 +225,17 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             pc->cleanNotColoredPoints(cloud_color);
 
             // Aguardar atualizacao da odometria
-            ros::Rate rloam(20);
-            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) > 0.3){
-                rloam.sleep();
+            float remaining_time = abs((msg->header.stamp - stamp_ref_loam).toSec());
+            std_msgs::Float32 msg_feedback;
+            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) > 0.3){                
+                msg_feedback.data = 75 + 25*(1 - abs((msg->header.stamp - stamp_ref_loam).toSec())/remaining_time);
+                feedback_pub.publish(msg_feedback);
                 ros::spinOnce();
             }
 
-            // Renovar a odometria de referencia no frame do laser
-            qref = qloam * qref;
-            tref = tloam + tref;
-
-            // Desligar a odometria para resetar o atraso do processamento
-            int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
-            ros::Duration(2).sleep();
-
-            // Transformar a nuvem para local inicial aproximado
-            Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
-            Quaternionf qodo = qcamframe*qref*qcamframe.inverse();
-            Vector3f todo = qcamframe*tref;
-            transformPointCloud<PointT>(*cloud_color, *cloud_color, todo, qodo);
+            // Renovar a odometria com a referencia anterior e transformar a nuvem
+            Todo = Tref*Tloam;
+            transformPointCloud<PointT>(*cloud_color, *cloud_color, Todo);
 
             // Salvar dados parciais na pasta no Desktop
             ROS_WARN("Salvando dados de imagem e nuvem da aquisicao %d ...", cont_aquisicao);
@@ -247,8 +256,8 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             pi->saveImage(im2save, nome_imagem);
 
             // Adicionar linha para o sfm
-            Vector3f tsfm = qodo*(-pc->gettCam()) + todo;
-            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem+".png", qodo.inverse().matrix(), qodo.inverse()*(-tsfm)));
+            Vector3f tsfm = Todo.block<3,3>(0, 0)*(-pc->gettCam()) + Todo.block<3,1>(0, 3);
+            cameras.emplace_back(pc->escreve_linha_sfm(nome_imagem+".png", Todo.inverse().block<3,3>(0, 0), -Todo.inverse().block<3,3>(0, 0)*tsfm));
 
             max_var = 0; // Liberando a imagem para a proxima captura
             ROS_WARN("Terminada aquisicao da nuvem %d", cont_aquisicao);
@@ -264,24 +273,27 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
 
         // Falar a porcentagem da aquisicao para o usuario
         std_msgs::Float32 msg_feedback;
-        msg_feedback.data = (100.0 * float(contador_nuvem)/float(N) >= 25) ? 100.0 * float(contador_nuvem)/float(N) : 25;
+        msg_feedback.data = 15 + 60*float(contador_nuvem)/float(N);
         if(contador_nuvem == N){
+            // Armazenar odometria de Referencia
+            Tref = Todo;
             // Religar odometria
-            int ans = system("nohup roslaunch loam_horizon loam_livox_horizon_imu.launch rviz:=false &");
-            ros::Duration(2).sleep();
-            while(sub_loam.getNumPublishers() < 1){
-                ros::Duration(0.2).sleep();
+            int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
+            do_sleep(3);
+            ans = system("nohup roslaunch loam_horizon loam_livox_horizon_imu.launch rviz:=false &");
+            Tloam = Matrix4f::Identity();
+            while(Tloam == Matrix4f::Identity()){ // Enquanto nao comecarem a vir dados
+                do_sleep(0.2);
                 ros::spinOnce();
             }
-            msg_feedback.data = 100.0;
-            feedback_pub.publish(msg_feedback);
-            ros::Duration(1).sleep();
-            msg_feedback.data = 1;
-            feedback_pub.publish(msg_feedback);
             // Matar os servos ao terminar e religar odometria
             ans = system("rosnode kill multi_port_cap");
             ans = system("rosnode kill multi_port_cap");
-            ans = system("rosnode kill multi_port_cap");
+            msg_feedback.data = 100.0;
+            feedback_pub.publish(msg_feedback);
+            do_sleep(1);
+            msg_feedback.data = 1;
+            feedback_pub.publish(msg_feedback);
             // Reseta o contador de nuvens aqui, mais seguro
             contador_nuvem = 0;
         } else {
@@ -305,17 +317,10 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         msg_feedback.data = 5;
         feedback_pub.publish(msg_feedback);
         // Tempo para a odometria se estabilizar
-        ros::Rate rwait_loam(20);
-        for(int i=0; i<20; i++){
-            rwait_loam.sleep();
-            ros::spinOnce();
-        }
+        do_sleep(2);
         msg_feedback.data = 10;
         feedback_pub.publish(msg_feedback);
-        for(int i=0; i<20; i++){
-            rwait_loam.sleep();
-            ros::spinOnce();
-        }
+        do_sleep(2);
         msg_feedback.data = 15;
         feedback_pub.publish(msg_feedback);
 
@@ -336,7 +341,7 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         pc->compileFinalSFM(cameras);
 
         // Esperar e finalizar o processo
-        ros::Duration(5).sleep();
+        do_sleep(5);
         res.result = 1;
         fim_processo = true;
         ROS_INFO("Finalizando o processo ...");
@@ -375,6 +380,10 @@ int main(int argc, char **argv)
     // Criando pastas filhas
     pasta = create_folder(pasta + "/scan") + "/";
 
+    // Iniciar a matriz de rotacao para o frame da camera
+    Quaternionf qcamframe( AngleAxisf(M_PI/2, Vector3f::UnitZ()) * AngleAxisf(-M_PI/2, Vector3f::UnitY()) );
+    Tcamframe.block<3,3>(0, 0) = qcamframe.matrix();
+
     // Inicia nuvem parcial acumulada a cada passagem do laser
     parcial = (PointCloud<PointXYZ>::Ptr) new PointCloud<PointXYZ>();
     parcial->header.frame_id  = "pepo";
@@ -398,23 +407,10 @@ int main(int argc, char **argv)
         r.sleep();
     }
     // Aguarda se realmente os dados de odometria estao sendo calculados
-    qloam.w() = 1000; qloam.x() = 1000; qref.w() = 1;
-    tloam << 1000, 1000, 1000;
-    for(int i=0; i<6; i++){
+    do_sleep(3);
+    while(Tloam == Matrix4f::Identity()){
         r.sleep();
         ros::spinOnce();
-    }
-    while(qloam.w() == 1000 && qloam.x() == 1000 && tloam[0] == 1000){
-        int ans = system("rosnode kill imu_process laserMapping laserOdometry livox_repub scanRegistration");
-        for(int i=0; i<8; i++){
-            r.sleep();
-            ros::spinOnce();
-        }
-        ans = system("roslaunch loam_horizon loam_livox_horizon_imu.launch");
-        for(int i=0; i<20; i++){
-            r.sleep();
-            ros::spinOnce();
-        }
     }
 
     // Inicia servidor que recebe o comando sobre como proceder com a aquisicao

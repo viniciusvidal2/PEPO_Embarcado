@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include <std_msgs/Float32.h>
+#include <sensor_msgs/NavSatFix.h>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
@@ -47,6 +48,8 @@ vector<string> linhas_sfm;
 int ntilts = 0, contador_nuvens = 0;
 // Pontos de vista para nao salvar nuvens (olhando para o chao)
 vector<int> nao_salvar_nuvens{1, 16, 17, 32, 33, 48, 49, 64, 65, 80, 81, 96, 97, 112, 113};
+// Coordenadas de GPS medias locais
+float lat_avg, lon_avg, alt_avg;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 string find_current_folder(string p){
@@ -76,7 +79,29 @@ void saveTempCloud(PointCloud<PointT>::Ptr cloud, int n){
         }
     }
 }
+void writeGPSdata(){
+    // Gravar um arquivo de coordenadas na pasta do scan
+    string nome_arquivo = pasta + "gps.txt";
+    ofstream gps(nome_arquivo);
+    if(gps.is_open()){
+
+        gps << lat_avg;
+        gps << lon_avg;
+        gps << alt_avg;
+
+    }
+    gps.close(); // Fechar para nao ter erro
+}
 ///////////////////////////////////////////////////////////////////////////////////////////
+
+/// Callback do GPS
+///
+void gpsCallback(const sensor_msgs::NavSatFixConstPtr &msg){
+    // Adicionar leitura de forma ponderada com um filtro passa baixa
+    lat_avg = 0.7*lat_avg + 0.3*msg->latitude;
+    lon_avg = 0.7*lon_avg + 0.3*msg->longitude;
+    alt_avg = 0.7*alt_avg + 0.3*msg->altitude;
+}
 
 /// Callback do laser e odometria sincronizado
 ///
@@ -126,6 +151,9 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
         }
         ROS_INFO("Salvando SFM e planta baixa final ...");
         pc->compileFinalSFM(linhas_sfm);
+        ROS_INFO("Salvando coordenadas GPS ...");
+        writeGPSdata();
+
         Mat blueprint;
         float side_area = 30, side_res = 0.04;
         pc->blueprint(acc, side_area, side_res, blueprint);
@@ -198,6 +226,9 @@ int main(int argc, char **argv)
     message_filters::Subscriber<nav_msgs::Odometry      > angle_sub(nh, "/angle_space", 100);
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(100), cloud_sub, angle_sub);
     sync.registerCallback(boost::bind(&cloudCallback, _1, _2));
+
+    // Iniciar subscritor do GPS
+    ros::Subscriber gps_sub = nh.subscribe("/gps", 10, gpsCallback);
 
     ROS_INFO("Comecando a reconstrucao do space ...");
 
