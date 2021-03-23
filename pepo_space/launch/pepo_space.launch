@@ -6,14 +6,16 @@
 <arg name="qual"       default="2"/>
 
 <!--Lancar no do driver camera USB-->
-<include file="$(find cv_camera)/launch/calibrar_camera.launch"/>
+<include file="$(find cv_camera)/launch/calibrar_camera.launch">
+    <arg name="iniciar_servos" value="false"/>
+</include>
 
 <!--Lancar no do driver do laser-->
 <include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
 
 <!--Lancar os servos dynamixel-->
-<include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch">
-</include>
+<!--<include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch">-->
+<!--</include>-->
 
 <!--Lancar no do GPS-->
 <node name="gps_node" pkg="gps_uart" type="gps.py"/>

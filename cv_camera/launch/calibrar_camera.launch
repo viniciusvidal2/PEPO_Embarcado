@@ -1,5 +1,7 @@
 <launch>
 
+<arg name="iniciar_servos" default="true"/>
+
 <!--Lancar no do driver camera USB-->
 <node name="camera" pkg="cv_camera" type="cv_camera_node" output="screen">
     <param name="cv_cap_prop_frame_width"  value="1280"/>
@@ -10,5 +12,12 @@
 <!--No de reproducao de imagem em escala reduzida para app-->
 <node name="imagem_lr_app" pkg="communication" type="encaminha_dados_desktop" output="screen">
 </node>
+
+<group if="$(arg iniciar_servos)">
+    <!--Lancar os servos dynamixel-->
+    <include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch"/>
+    <!--Enviar os servos para o 0-->
+    <node name="send_dynamixel_to_zero" pkg="dynamixel_workbench_controllers" type="send_dynamixel_to_zero" output="screen"/>
+</group>
 
 </launch>

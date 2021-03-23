@@ -5,7 +5,9 @@
 <include file="$(find livox_ros_driver)/launch/livox_lidar_msg.launch"/>
 
 <!--Lancar no do driver camera USB-->
-<include file="$(find cv_camera)/launch/calibrar_camera.launch"/>
+<include file="$(find cv_camera)/launch/calibrar_camera.launch">
+    <arg name="iniciar_servos" value="false"/>
+</include>
 
 <!--Lancar no de LOAM do Horizon-->
 <include file="$(find loam_horizon)/launch/loam_livox_horizon_imu.launch">

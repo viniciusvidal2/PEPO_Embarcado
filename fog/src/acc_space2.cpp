@@ -85,9 +85,9 @@ void writeGPSdata(){
     ofstream gps(nome_arquivo);
     if(gps.is_open()){
 
-        gps << lat_avg;
-        gps << lon_avg;
-        gps << alt_avg;
+        gps << std::to_string(lat_avg) + "\n";
+        gps << std::to_string(lon_avg) + "\n";
+        gps << std::to_string(alt_avg) + "\n";
 
     }
     gps.close(); // Fechar para nao ter erro

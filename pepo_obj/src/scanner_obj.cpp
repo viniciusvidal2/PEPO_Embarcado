@@ -72,7 +72,7 @@ ros::Publisher feedback_pub;
 Matrix4f Tref  = Matrix4f::Identity();
 Matrix4f Tloam = Matrix4f::Identity();
 Matrix4f Tcamframe = Matrix4f::Identity();
-ros::Time stamp_ref_loam;
+ros::Time stamp_ref_loam, stamp_ref_laser;
 ros::Subscriber sub_loam;
 // Controle se servos estao travados - se existe o no publicando
 bool servos_locked = false;
@@ -155,9 +155,9 @@ void servosCallback(const nav_msgs::OdometryConstPtr& msg){
     // Se os servos estao travados, libera leitura de imagem e laser nos callbacks
     if(!servos_locked)
         stab_servo++;
-    if(!servos_locked && stab_servo == 12){
+    if(!servos_locked && stab_servo == 6){
         int ret = comando_motor.call(cmd);
-        do_sleep(5);
+        do_sleep(3);
         servos_locked = true;
         stab_servo = 0;
         // Libera tambem a camera aqui e o tempo que comecamos a aquisicao
@@ -184,6 +184,12 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
     sensor_msgs::PointCloud2 comm_msg;
     toROSMsg(*cloud, comm_msg);
     cloud_pub.publish(comm_msg);
+
+    // Marca o stamp em que comecamos a aquisicao - adianta a correspondencia com odometria
+    if(aquisitando && contador_nuvem == 0)
+        stamp_ref_laser = msg->header.stamp;
+
+    //ROS_WARN("Temos aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", msg->header.stamp.toSec(), stamp_ref_loam.toSec(), (msg->header.stamp - stamp_ref_loam).toSec());
 
     // Acumular na nuvem total por N vezes quando aquisitando
     if(aquisitando && servos_locked){
@@ -225,11 +231,17 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             pc->cleanNotColoredPoints(cloud_color);
 
             // Aguardar atualizacao da odometria
-            float remaining_time = abs((msg->header.stamp - stamp_ref_loam).toSec());
+            float remaining_time = abs((stamp_ref_laser - stamp_ref_loam).toSec()), stamp_dif = remaining_time;
             std_msgs::Float32 msg_feedback;
-            while(abs((msg->header.stamp - stamp_ref_loam).toSec()) > 0.3){                
-                msg_feedback.data = 75 + 25*(1 - abs((msg->header.stamp - stamp_ref_loam).toSec())/remaining_time);
-                feedback_pub.publish(msg_feedback);
+            //ROS_INFO("Temos aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", stamp_ref_laser.toSec(), stamp_ref_loam.toSec(), (stamp_ref_laser - stamp_ref_loam).toSec());
+            while(abs((stamp_ref_laser - stamp_ref_loam).toSec()) >= 1 && stamp_ref_laser.toSec() > stamp_ref_loam.toSec()){
+//                ROS_WARN("AGUARDANDO aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", stamp_ref_laser.toSec(), stamp_ref_loam.toSec(), (stamp_ref_laser - stamp_ref_loam).toSec());
+//                if(abs(stamp_dif - (stamp_ref_laser - stamp_ref_loam).toSec()) > 1){
+//                    stamp_dif = abs((stamp_ref_laser - stamp_ref_loam).toSec());
+//                    msg_feedback.data = ((75 + 25*(1 - stamp_dif/remaining_time)) < 100) ? 75 + 25*(1 - stamp_dif/remaining_time) : 99;
+//                    feedback_pub.publish(msg_feedback);
+//                }
+                do_sleep((stamp_ref_laser - stamp_ref_loam).toSec());
                 ros::spinOnce();
             }
 
@@ -287,7 +299,6 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
                 ros::spinOnce();
             }
             // Matar os servos ao terminar e religar odometria
-            ans = system("rosnode kill multi_port_cap");
             ans = system("rosnode kill multi_port_cap");
             msg_feedback.data = 100.0;
             feedback_pub.publish(msg_feedback);
@@ -361,6 +372,8 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::NodeHandle n_("~");
     ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
+
+    int finalizar_zero_dyn = system("rosnode kill send_dynamixel_to_zero multi_port_cap");
 
     // Pegando o nome da pasta por parametro
     string nome_param;

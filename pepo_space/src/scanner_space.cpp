@@ -55,7 +55,7 @@ ros::ServiceClient comando_leds;
 // Posicao atual de aquisicao
 int indice_posicao = 0;
 // Raio de aceitacao de posicao angular
-int dentro_pan = 5, dentro_tilt = 30; // [RAW]
+int dentro_pan = 15, dentro_tilt = 30; // [RAW]
 // Flags de controle
 bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria
@@ -128,6 +128,14 @@ void camCallback(const sensor_msgs::ImageConstPtr& msg){
 void servosCallback(const nav_msgs::OdometryConstPtr &msg_servos){
     // As mensagens trazem angulos em unidade RAW
     pan = int(msg_servos->pose.pose.position.x), tilt = int(msg_servos->pose.pose.position.y);
+    // Checar se nao estivermos dentro tem que mandar pra o ponto de qualquer forma
+    if(abs(pan - pans_raw[indice_posicao]) > (dentro_pan + 10) && abs(tilt - tilts_raw[indice_posicao]) > (dentro_tilt + 10)){
+        cmd.request.pan_pos  = pans_raw[indice_posicao];
+        cmd.request.tilt_pos = tilts_raw[indice_posicao];
+        if(comando_motor.call(cmd))
+            ROS_INFO("Indo para a posicao %d de %zu totais aquisitar nova imagem ...", indice_posicao+1, pans_raw.size());
+        ros::Duration(0.4).sleep();
+    }
 }
 
 /// Callback IMU
@@ -170,6 +178,8 @@ int main(int argc, char **argv)
     ros::NodeHandle n_("~");
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
+
+    int finalizar_zero_dyn = system("rosnode kill send_dynamixel_to_zero");
 
     // Classe de propriedades dos servos - no inicio para ja termos em maos
     ds = new DynamixelServos();
@@ -279,11 +289,11 @@ int main(int argc, char **argv)
     ROS_INFO("Servos comunicando e indo para a posicao inicial ...");
     ros::Duration(6).sleep(); // Esperar os servos pararem de balancar e driver de imagem ligar
 
-    while(!gps_signal){ // Aguardar o GPS enviar coordenadas validas
-        ROS_INFO("Aguardando GPS ...");
-        ros::spinOnce();
-        r.sleep();
-    }
+//    while(!gps_signal){ // Aguardar o GPS enviar coordenadas validas
+//        ROS_INFO("Aguardando GPS ...");
+//        ros::spinOnce();
+//        r.sleep();
+//    }
 
     // Inicia classe de processo de nuvens e imagens
     pc = new ProcessCloud (pasta);
@@ -330,7 +340,6 @@ int main(int argc, char **argv)
             // Chavear a flag
             aquisitar_imagem_imu = false;
             // Salvar quaternion para criacao da imagem 360 final
-//            Matrix3f R360 = pc->euler2matrix(0, -DEG2RAD(ds->raw2deg(tilt, "tilt")), -DEG2RAD(ds->raw2deg(pan, "pan")));
             Matrix3f R360 = pc->euler2matrix(roll_lpf, tilt_lpf, -DEG2RAD(ds->raw2deg(pan, "pan")));
             Quaternion<float> q360(R360);
             quaternions_panoramica.emplace_back(q360);
@@ -399,13 +408,9 @@ int main(int argc, char **argv)
 
             } else { // Se for a ultima, finalizar
 
-                indice_posicao++;
                 ROS_INFO("Aquisitamos tudo, enviando para posicao inicial novamente ...");
                 cmd_led.request.led = 1; // LED continuo
                 comando_leds.call(cmd_led);
-                cmd.request.pan_pos  = pans_raw[0]; // Quase no inicio, pra quando ligar dar uma mexida
-                cmd.request.tilt_pos = ds->raw_hor_tilt;
-                comando_motor.call(cmd);
 
                 // Criar a 360 crua
                 ROS_INFO("Processando imagem 360 ...");
@@ -413,9 +418,10 @@ int main(int argc, char **argv)
                 ROS_INFO("Processado e finalizado o Scan.");
 
                 // Avisar ao gerenciador global que acabamos
-                ros::Duration(8).sleep();
+                ros::Duration(2).sleep();
                 // Mata todos os nos que estao rodando
-                int ans = system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space gps_node");
+                int ans = system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space");
+                ans = system("rosnode kill gps_node");
 
             }
         } // Fim if estamos dentro do waypoint

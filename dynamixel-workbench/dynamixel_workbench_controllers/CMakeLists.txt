@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamixel_sdk
   dynamixel_workbench_msgs
   dynamixel_workbench_toolbox
+  pcl_ros
 )
 
 ################################################################################
@@ -31,7 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES dynamixel_workbench_controllers
- CATKIN_DEPENDS roscpp std_msgs dynamixel_sdk dynamixel_workbench_msgs dynamixel_workbench_toolbox
+ CATKIN_DEPENDS roscpp std_msgs dynamixel_sdk dynamixel_workbench_msgs dynamixel_workbench_toolbox pcl_ros
 )
 
 ################################################################################
@@ -39,12 +40,17 @@ catkin_package(
 ################################################################################
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ../../libraries/include
   include
 )
 
 add_executable(position_control src/position_control.cpp)
 add_dependencies(position_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(position_control ${catkin_LIBRARIES})
+
+add_executable(send_dynamixel_to_zero src/send_dynamixel_to_zero.cpp ../../libraries/src/dynamixelservos.cpp)
+add_dependencies(send_dynamixel_to_zero ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(send_dynamixel_to_zero ${catkin_LIBRARIES})
 
 add_executable(velocity_control src/velocity_control.cpp)
 add_dependencies(velocity_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

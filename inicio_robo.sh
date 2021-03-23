@@ -13,6 +13,8 @@ echo 12 | sudo -S insmod rtl8188fu.ko
 
 # Liberar o toin la da usb
 echo 12 | sudo -S chmod a+rw /dev/ttyUSB0
+echo 12 | sudo -S chmod a+rw /dev/ttyTHS1
+echo 12 | sudo -S chmod a+rw /dev/ttyTHS2
 
 # Setar os parametros pra camera em ambiente aberto
 v4l2-ctl --set-ctrl=exposure_auto=1

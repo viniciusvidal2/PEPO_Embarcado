@@ -49,6 +49,7 @@ def post_acquisition_cancel():
     os.system('rosnode kill scanner_space')
     os.system('rosnode kill acc_space_node')
     os.system('rosnode kill scanner_obj')
+    os.system('rosnode kill gps_node')
 
     camera_force_kill()
 
