@@ -78,8 +78,7 @@ float roll_lpf, tilt_lpf;
 vector<int> tilts_imagens_pan_atual;
 // Vetor com todos os quaternions para fazer a panoramica
 vector<Quaternion<float>> quaternions_panoramica;
-// Quantos tilts vamos capturar
-int ntilts;
+vector<string> nomes_imagens;
 // Ponteiro de cv_bridge para a imagem
 cv_bridge::CvImagePtr image_ptr;
 // Imagem com menor blur, para a maior covariancia encontrada no escaneamento
@@ -226,19 +225,16 @@ int main(int argc, char **argv)
     ///
     // Pontos de observacao em tilt
     int step_tilt = 15;
-    ntilts = int(abs(ds->deg_max_tilt - ds->deg_min_tilt))/step_tilt + 2;
+    int vistas_tilt = int(abs(ds->deg_max_tilt - ds->deg_min_tilt))/step_tilt + 2;
     vector<float> tilts_camera_deg;
-    for(int j=0; j < ntilts; j++)
+    for(int j=0; j < vistas_tilt; j++)
         tilts_camera_deg.push_back(ds->deg_min_tilt - float(j*step_tilt));
-//    vector<float> tilts_camera_deg{0.0};
-//    ntilts = tilts_camera_deg.size(); // Para reforcar
-   // Pontos de observacao em pan
+    // Pontos de observacao em pan
     int vistas_pan = int(final_scanner_deg_pan - inicio_scanner_deg_pan)/step + 2; // Vistas na horizontal, somar inicio e final do range
     vector<float> pans_camera_deg;
     for(int j=0; j < vistas_pan-1; j++)
         pans_camera_deg.push_back(inicio_scanner_deg_pan + float(j*step));
-//    vector<float> pans_camera_deg{50};
-    // Enchendo vetores de waypoints de imagem em deg e raw globais
+    // Gerando path
     for(int j=0; j < pans_camera_deg.size(); j++){
         for(int i=0; i < tilts_camera_deg.size(); i++){
             if(remainder(j, 2) == 0){
@@ -287,13 +283,7 @@ int main(int argc, char **argv)
         r.sleep();
     }
     ROS_INFO("Servos comunicando e indo para a posicao inicial ...");
-    ros::Duration(6).sleep(); // Esperar os servos pararem de balancar e driver de imagem ligar
-
-//    while(!gps_signal){ // Aguardar o GPS enviar coordenadas validas
-//        ROS_INFO("Aguardando GPS ...");
-//        ros::spinOnce();
-//        r.sleep();
-//    }
+    ros::Duration(2).sleep(); // Esperar os servos pararem de balancar e driver de imagem ligar
 
     // Inicia classe de processo de nuvens e imagens
     pc = new ProcessCloud (pasta);
@@ -351,6 +341,7 @@ int main(int argc, char **argv)
                 nome_imagem_atual = "imagem_0" +std::to_string(indice_posicao+1);
             else
                 nome_imagem_atual = "imagem_"  +std::to_string(indice_posicao+1);
+            nomes_imagens.emplace_back(nome_imagem_atual);
             pi->saveImage(min_blur_im, nome_imagem_atual);
             min_blur_im.release(); max_var = 0; // Liberando a imagem para a proxima captura
 
@@ -384,11 +375,7 @@ int main(int argc, char **argv)
             msg_out.header.stamp = ros::Time::now();
             msg_out.header.frame_id = "map";
             nav_msgs::Odometry odom_cloud_out;
-            odom_cloud_out.pose.pose.position.x = roll_lpf;
-            odom_cloud_out.pose.pose.position.y = tilt_lpf; //DEG2RAD(ds->raw2deg(tilt, "tilt"));
-            odom_cloud_out.pose.pose.position.z = -DEG2RAD(ds->raw2deg(pan, "pan"));
             odom_cloud_out.pose.pose.orientation.w = pans_raw.size(); // Quantidade total de aquisicoes para o fog ter nocao
-            odom_cloud_out.pose.pose.orientation.x = float(ntilts);   // Quantos tilts para a fog se organizar
             odom_cloud_out.pose.pose.orientation.y = float(indice_posicao);  // Posicao atual na aquisicao
             odom_cloud_out.header.stamp    = msg_out.header.stamp;
             odom_cloud_out.header.frame_id = msg_out.header.frame_id;
@@ -417,8 +404,19 @@ int main(int argc, char **argv)
                 pi->estimateRaw360(quaternions_panoramica, pc->getFocuses(1));
                 ROS_INFO("Processado e finalizado o Scan.");
 
+                // Escreve o arquivo SFM
+                ROS_INFO("Salvando SFM final ...");
+                vector<string> cameras(quaternions_panoramica.size());
+                for(int s=0; s<quaternions_panoramica.size(); s++){
+                    // Matriz com a pose da camera
+                    Matrix3f R = quaternions_panoramica[s].matrix();
+                    Vector3f tsfm = R*(-pc->gettCam());
+                    cameras[s] = pc->escreve_linha_sfm(nomes_imagens[s]+".png", R.inverse(), -R.inverse().block<3,3>(0, 0)*tsfm);
+                }
+                pc->compileFinalSFM(cameras);
+
                 // Avisar ao gerenciador global que acabamos
-                ros::Duration(2).sleep();
+                ros::Duration(5).sleep();
                 // Mata todos os nos que estao rodando
                 int ans = system("rosnode kill camera imagem_lr_app livox_lidar_publisher multi_port_cap scanner_space");
                 ans = system("rosnode kill gps_node");

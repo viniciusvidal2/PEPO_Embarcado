@@ -40,12 +40,10 @@ ProcessCloud *pc;
 PointCloud<PointT>::Ptr acc;
 // Nome da pasta que vamos trabalhar
 string pasta;
-// Poses das cameras para aquela aquisicao [RAD]
-vector<float> pan_cameras, tilt_cameras, roll_cameras;
 // Vetor com linhas do arquivo NVM
 vector<string> linhas_sfm;
 // Quantos tilts estao ocorrendo por pan, e contador de quantos ja ocorreram
-int ntilts = 0, contador_nuvens = 0;
+int contador_nuvens = 0;
 // Pontos de vista para nao salvar nuvens (olhando para o chao)
 vector<int> nao_salvar_nuvens{1, 16, 17, 32, 33, 48, 49, 64, 65, 80, 81, 96, 97, 112, 113};
 // Coordenadas de GPS medias locais
@@ -106,14 +104,6 @@ void gpsCallback(const sensor_msgs::NavSatFixConstPtr &msg){
 /// Callback do laser e odometria sincronizado
 ///
 void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_msgs::OdometryConstPtr& msg_angle){
-    // As mensagens trazem angulos em unidade RAD
-    pan_cameras.emplace_back(msg_angle->pose.pose.position.z);
-    tilt_cameras.emplace_back(msg_angle->pose.pose.position.y);
-    roll_cameras.emplace_back(msg_angle->pose.pose.position.x);
-
-    // Atualiza a quantidade de tilts que estamos esperando
-    ntilts = int(msg_angle->pose.pose.orientation.x);
-
     // Contador de qual nuvem estamos
     int cont_aquisicao = msg_angle->pose.pose.orientation.y + 1;
 
@@ -131,34 +121,16 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr &msg_cloud, const nav_
 
     // Fazendo processos finais
     if(cont_aquisicao >= msg_angle->pose.pose.orientation.w){
-        ROS_INFO("Processando todo o SFM otimizado ...");
-        for(int i=0; i<pan_cameras.size(); i++){
-            // Calcula a matriz de pose da camera pelos angulos e offset
-            Matrix4f Tcam = Matrix4f::Identity();
-            Tcam.block<3,3>(0, 0) = pc->euler2matrix(roll_cameras[i], tilt_cameras[i], pan_cameras[i]);
-            Tcam.block<3,1>(0, 3) = Tcam.block<3,3>(0, 0)*pc->gettCam();
-            Tcam = Tcam.inverse();
-
-            // Escreve a linha e anota no vetor de linhas SFM
-            string nome_imagem;
-            if(i+1 < 10)
-                nome_imagem = "imagem_00"+std::to_string(i+1)+".png";
-            else if(i+1 < 100)
-                nome_imagem = "imagem_0" +std::to_string(i+1)+".png";
-            else
-                nome_imagem = "imagem_"  +std::to_string(i+1)+".png";
-            linhas_sfm.push_back(pc->escreve_linha_sfm(nome_imagem, Tcam.block<3,3>(0, 0), Tcam.block<3,1>(0, 3)));
-        }
-        ROS_INFO("Salvando SFM e planta baixa final ...");
-        pc->compileFinalSFM(linhas_sfm);
         ROS_INFO("Salvando coordenadas GPS ...");
         writeGPSdata();
 
+        ROS_INFO("Salvando blueprint ...");
         Mat blueprint;
         float side_area = 30, side_res = 0.04;
         pc->blueprint(acc, side_area, side_res, blueprint);
         acc->clear();
 
+        ros::Duration(3).sleep();
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = 100.0;
         msg_pub.publish(msg_feedback);
