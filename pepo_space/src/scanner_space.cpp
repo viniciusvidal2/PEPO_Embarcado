@@ -178,8 +178,6 @@ int main(int argc, char **argv)
     pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
     ROS_INFO("Iniciando o processo do SCANNER - aguardando servos ...");
 
-    int finalizar_zero_dyn = system("rosnode kill send_dynamixel_to_zero");
-
     // Classe de propriedades dos servos - no inicio para ja termos em maos
     ds = new DynamixelServos();
 
@@ -248,6 +246,7 @@ int main(int argc, char **argv)
             pans_raw.push_back(ds->deg2raw(pans_camera_deg[j], "pan"));
         }
     }
+
     // Inicia servico para mexer os servos
     comando_motor = nh.serviceClient<dynamixel_workbench_msgs::JointCommand>("/joint_command");
 
@@ -406,8 +405,8 @@ int main(int argc, char **argv)
 
                 // Escreve o arquivo SFM
                 ROS_INFO("Salvando SFM final ...");
-                vector<string> cameras(quaternions_panoramica.size());
-                for(int s=0; s<quaternions_panoramica.size(); s++){
+                vector<string> cameras(pans_raw.size());
+                for(int s=0; s<pans_raw.size(); s++){
                     // Matriz com a pose da camera
                     Matrix3f R = quaternions_panoramica[s].matrix();
                     Vector3f tsfm = R*(-pc->gettCam());

@@ -117,6 +117,10 @@ def camera_force_kill():
 def camera_kill():
     global global_image_camera
     os.system('rosnode kill imagem_lr_app')
+    process = subprocess.Popen('rosnode kill multi_port_cap', shell=True, stdout=subprocess.PIPE)
+    process.wait()
+    process = subprocess.Popen('rosnode kill send_dynamixel_to_zero', shell=True, stdout=subprocess.PIPE)
+    process.wait()
     process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
     process.wait()
     global_image_camera = ''

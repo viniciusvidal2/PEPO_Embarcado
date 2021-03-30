@@ -373,8 +373,6 @@ int main(int argc, char **argv)
     ros::NodeHandle n_("~");
     ROS_INFO("Iniciando o processo do SCANNER de objeto ...");
 
-    int finalizar_zero_dyn = system("rosnode kill send_dynamixel_to_zero multi_port_cap");
-
     // Pegando o nome da pasta por parametro
     string nome_param;
     n_.param("pasta", nome_param, string("Dados_PEPO"));

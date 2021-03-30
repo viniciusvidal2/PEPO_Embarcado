@@ -14,8 +14,8 @@
 <include file="$(find livox_ros_driver)/launch/livox_lidar.launch"/>
 
 <!--Lancar os servos dynamixel-->
-<!--<include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch">-->
-<!--</include>-->
+<include file="$(find dynamixel_workbench_controllers)/launch/multi_port_cap.launch">
+</include>
 
 <!--Lancar no do GPS-->
 <node name="gps_node" pkg="gps_uart" type="gps.py"/>
