@@ -28,8 +28,8 @@ v4l2-ctl --set-ctrl=white_balance_temperature=4000
 # Importar dependencias de ROS - workspaces
 source /opt/ros/melodic/setup.bash
 source /home/cap/pepo_ws/devel/setup.bash
-export ROS_IP=192.168.0.102
-export ROS_MASTER_URI=http://192.168.0.102:11311
+export ROS_IP=192.168.0.100
+export ROS_MASTER_URI=http://192.168.0.100:11311
 
 # Chamar servidor rosbridge de inicio
 nohup roslaunch rosbridge_server rosbridge_websocket.launch &

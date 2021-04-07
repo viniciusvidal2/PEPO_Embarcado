@@ -1,0 +1,172 @@
+[31mRLException: Unable to contact my own server at [http://192.168.0.101:37597/].
+This usually means that the network is not configured properly.
+
+A common cause is that the machine cannot connect to itself.  Please check
+for errors by running:
+
+	ping 192.168.0.101
+
+For more tips, please see
+
+	http://wiki.ros.org/ROS/NetworkSetup
+[0m
+[31mThe traceback for the exception was written to the log file[0m
+... logging to /home/cap/.ros/log/4cf17c10-5cd2-11eb-8c32-00044be679c7/roslaunch-cap-7644.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/cap/pepo_ws/src/PEPO_Embarcado/rosbridge_suite/rosbridge_server/launch/rosbridge_websocket.launch
+ * Serving Flask app "/home/cap/pepo_ws/src/PEPO_Embarcado/app.py"
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+Is ROS connected ? True
+Traceback (most recent call last):
+  File "/home/cap/.local/bin/flask", line 11, in <module>
+    sys.exit(main())
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 967, in main
+    cli.main(args=sys.argv[1:], prog_name="python -m flask" if as_module else None)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 586, in main
+    return super(FlaskGroup, self).main(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 782, in main
+    rv = self.invoke(ctx)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 1259, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 1066, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 610, in invoke
+    return callback(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/decorators.py", line 73, in new_func
+    return ctx.invoke(f, obj, *args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 610, in invoke
+    return callback(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 860, in run_command
+    extra_files=extra_files,
+  File "/home/cap/.local/lib/python3.6/site-packages/werkzeug/serving.py", line 1052, in run_simple
+    inner()
+  File "/home/cap/.local/lib/python3.6/site-packages/werkzeug/serving.py", line 1005, in inner
+    fd=fd,
+  File "/home/cap/.local/lib/python3.6/site-packages/werkzeug/serving.py", line 848, in make_server
+    host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
+  File "/home/cap/.local/lib/python3.6/site-packages/werkzeug/serving.py", line 740, in __init__
+    HTTPServer.__init__(self, server_address, handler)
+  File "/usr/lib/python3.6/socketserver.py", line 456, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.6/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.6/socketserver.py", line 470, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2021-01-22 13:53:35-0300 [-] Log opened.
+2021-01-22 13:53:35-0300 [-] registered capabilities (classes):
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.call_service.CallService
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.advertise.Advertise
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.publish.Publish
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.subscribe.Subscribe
+2021-01-22 13:53:35-0300 [-]  - <class 'rosbridge_library.capabilities.defragmentation.Defragment'>
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.advertise_service.AdvertiseService
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.service_response.ServiceResponse
+2021-01-22 13:53:35-0300 [-]  - rosbridge_library.capabilities.unadvertise_service.UnadvertiseService
+2021-01-22 13:53:36-0300 [-] [WARN] [1611334416.295628]: Unable to start server: Couldn't listen on any:9090: [Errno 98] Address already in use. Retrying in 5s.
+2021-01-22 13:53:41-0300 [-] [WARN] [1611334421.303789]: Unable to start server: Couldn't listen on any:9090: [Errno 98] Address already in use. Retrying in 5s.
+ * Serving Flask app "/home/cap/pepo_ws/src/PEPO_Embarcado/app.py"
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+2021-01-22 13:53:45-0300 [-] shutdown request: [/rosbridge_websocket] Reason: new node registered with same name
+2021-01-22 13:53:46-0300 [-] [WARN] [1611334426.323474]: Can't stop the reactor, it wasn't running
+Traceback (most recent call last):
+  File "/home/cap/.local/bin/flask", line 11, in <module>
+    sys.exit(main())
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 967, in main
+    cli.main(args=sys.argv[1:], prog_name="python -m flask" if as_module else None)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 586, in main
+    return super(FlaskGroup, self).main(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 782, in main
+    rv = self.invoke(ctx)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 1259, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 1066, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 610, in invoke
+    return callback(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/decorators.py", line 73, in new_func
+    return ctx.invoke(f, obj, *args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/click/core.py", line 610, in invoke
+    return callback(*args, **kwargs)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 848, in run_command
+    app = DispatchingApp(info.load_app, use_eager_loading=eager_loading)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 305, in __init__
+    self._load_unlocked()
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 330, in _load_unlocked
+    self._app = rv = self.loader()
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 388, in load_app
+    app = locate_app(self, import_name, name)
+  File "/home/cap/.local/lib/python3.6/site-packages/flask/cli.py", line 240, in locate_app
+    __import__(module_name)
+  File "/home/cap/pepo_ws/src/PEPO_Embarcado/app.py", line 15, in <module>
+    ros.run()
+  File "/home/cap/.local/lib/python3.6/site-packages/roslibpy/ros.py", line 90, in run
+    raise Exception('Failed to connect to ROS')
+Exception: Failed to connect to ROS
+[33m[ WARN] [1611334538.248888884]: Shutdown request received.[0m
+[33m[ WARN] [1611334538.249026801]: Reason given for shutdown: [[/system_state] Reason: new node registered with same name][0m
+[0m[ INFO] [1611334414.548401900]: Ligando monitoramento do sistema.[0m
+[INFO] [1611334415.521430]: Rosapi started
+shutdown request: [/rosapi] Reason: new node registered with same name
+2021-01-22 14:13:43-0300 [-] Received SIGTERM, shutting down.
+2021-01-22 14:13:43-0300 [-] Main loop terminated.
+... logging to /home/cap/.ros/log/ee43f5f8-5cd1-11eb-bbb7-00044be679c7/roslaunch-cap-7768.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/cap/pepo_ws/src/PEPO_Embarcado/rosbridge_suite/rosbridge_server/launch/rosbridge_websocket.launch
+[1mstarted roslaunch server http://cap:39343/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /rosapi/params_glob: [*]
+ * /rosapi/services_glob: [*]
+ * /rosapi/topics_glob: [*]
+ * /rosbridge_websocket/address: 0.0.0.0
+ * /rosbridge_websocket/authenticate: False
+ * /rosbridge_websocket/bson_only_mode: False
+ * /rosbridge_websocket/delay_between_messages: 0
+ * /rosbridge_websocket/fragment_timeout: 600
+ * /rosbridge_websocket/max_message_size: None
+ * /rosbridge_websocket/params_glob: [*]
+ * /rosbridge_websocket/port: 9090
+ * /rosbridge_websocket/retry_startup_delay: 5
+ * /rosbridge_websocket/services_glob: [*]
+ * /rosbridge_websocket/topics_glob: [*]
+ * /rosbridge_websocket/unregister_timeout: 10
+ * /rosbridge_websocket/use_compression: False
+ * /rosbridge_websocket/websocket_external_port: None
+ * /rosbridge_websocket/websocket_ping_interval: 0
+ * /rosbridge_websocket/websocket_ping_timeout: 30
+ * /rosdistro: melodic
+ * /rosversion: 1.14.10
+
+NODES
+  /
+    rosapi (rosapi/rosapi_node)
+    rosbridge_websocket (rosbridge_server/rosbridge_websocket)
+    system_state (communication/system_state_node)
+
+[1mROS_MASTER_URI=http://localhost:11311[0m
+]2;/home/cap/pepo_ws/src/PEPO_Embarcado/rosbridge_suite/rosbridge_server/launch/rosbridge_websocket.launch http://localhost:11311
+[1mprocess[rosbridge_websocket-1]: started with pid [7787][0m
+[1mprocess[rosapi-2]: started with pid [7788][0m
+[1mprocess[system_state-3]: started with pid [7789][0m
+[1m[system_state-3] process has finished cleanly
+log file: /home/cap/.ros/log/ee43f5f8-5cd1-11eb-bbb7-00044be679c7/system_state-3*.log[0m
+[1m[rosapi-2] process has finished cleanly
+log file: /home/cap/.ros/log/ee43f5f8-5cd1-11eb-bbb7-00044be679c7/rosapi-2*.log[0m
+[rosbridge_websocket-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m
