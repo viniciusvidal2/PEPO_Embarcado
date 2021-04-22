@@ -22,26 +22,34 @@ def gps_publish():
     # Main loop runs forever printing the location, etc. every second.
     last_print = time.monotonic()
     while not rospy.is_shutdown():
-        gps.update()
         # Every second print out current location details if there's a fix.
         current = time.monotonic()
-        if current - last_print >= 1.0:
+        if current - last_print >= 0.5:
             last_print = current
+
             # GPS message
             msg = NavSatFix()
             msg.header.frame_id = 'map'
             msg.header.stamp = rospy.Time.now()
-            msg.status.status  = 1
-            msg.status.service = 1
-            if gps.has_fix:
-                msg.latitude  = gps.latitude
-                msg.longitude = gps.longitude
-                msg.altitude  = gps.altitude_m
-            else:
+            status  = 0
+            service = 0
+
+            # Check new data
+            if gps.update() and gps.has_fix:
+                status = 1
+            if not gps.update() or not gps.has_3d_fix:
                 msg.latitude  = 0
                 msg.longitude = 0
                 msg.altitude  = 0
+            if gps.has_3d_fix:
+                msg.latitude  = gps.latitude
+                msg.longitude = gps.longitude
+                msg.altitude  = gps.altitude_m
+                status = 2
+                service = gps.satellites
 
+            msg.status.status  = status
+            msg.status.service = service
             # Publish message
             pub_gps.publish(msg)
             rate.sleep()
