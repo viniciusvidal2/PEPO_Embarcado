@@ -19,8 +19,9 @@ def check():
     gps.send_command(b"PMTK220,1000")
 
     # Acquire from GPS
-    time.sleep(0.5)
-    gps.update()
+    for i in range(5):
+        time.sleep(0.2)
+        gps.update()
 
     # Check fix
     fix = 'yes' if gps.has_fix else 'no'
