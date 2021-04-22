@@ -8,6 +8,8 @@ import subprocess
 import time
 import shutil
 
+from check_gps_fix import *
+
 global_ros_ip = '0.0.0.0'
 global_ros_port = 9090
 ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
@@ -282,6 +284,9 @@ def project_new():
     global_aquisition_type = tipo_int
     return jsonify(True)
 
+@app.route("/gps/check_fix", methods=["POST"])
+def check_fix():
+    return jsonify(check())
 
 @app.route('/ping', methods=['GET'])
 def ping():

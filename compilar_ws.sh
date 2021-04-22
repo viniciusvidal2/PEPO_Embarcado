@@ -2,6 +2,7 @@
 
 # Ir para a pasta do workpace
 cd /home/cap/pepo_ws
+source /opt/ros/melodic/setup.bash
 
 # Compilar dependencias menores
 catkin_make --pkg cv_camera dynamixel_workbench_controllers dynamixel_workbench_msgs led_control livox_ros_driver gps_uart
