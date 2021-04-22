@@ -91,12 +91,12 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             pc->transformToCameraFrame(cloud_im_virtual);
             // Colorir pontos com calibracao default para visualizacao rapida
             aquisitar_imagem = false;
-            Mat temp_im;
-            imptr->image.copyTo(temp_im);
-            resize(temp_im, temp_im, Size(320, 180));
+//            Mat temp_im;
+//            imptr->image.copyTo(temp_im);
             // Imagem virtual iniciada
-            Mat virtual_image(Size(320, 180), CV_8UC3, Scalar(0, 0, 0));
-            pc->getVirtualImage(cloud_im_virtual, temp_im, virtual_image, 4);
+            Mat virtual_image(Size(imptr->image.cols, imptr->image.rows), CV_8UC3, Scalar(0, 0, 0));
+            pc->getVirtualImage(cloud_im_virtual, imptr->image, virtual_image, 1);
+            resize(virtual_image, virtual_image, Size(320, 180));
             // Poupar memoria da parcial
             cloud_im_virtual->clear();
 

@@ -6,19 +6,40 @@ ProcessCloud::ProcessCloud(string _pasta):pasta(_pasta){
     //    K1 << 1427.1  ,   -0.063, 987.9,
     //             0.041, 1449.4  , 579.4,
     //             0    ,    0    ,   1  ;
+    // Lendo arquivo onde esta a calibracao
+    char* home;
+    home = getenv("HOME");
+    ifstream calib_file(string(home)+"/calib_cam_laser.txt");
+    string params_line;
+    vector<float> params;
+    if(calib_file.is_open()){
+        while(getline(calib_file, params_line)){
+            istringstream iss(params_line);
+            for(string s; iss >> s; )
+                params.push_back(stof(s));
+        }
+    }
+    calib_file.close();
     // Matriz intrinseca com imagem em HD
-    K1 << 978.34 ,  -0.013, 654.28,
-            0.054, 958.48 , 367.44,
-            0    ,   0    ,   1   ;
+    K1 << params[0], params[1], params[2],
+          params[3], params[4], params[5],
+          params[6], params[7], params[8];
+//    // Matriz intrinseca com imagem em HD
+//    K1 << 978.34 ,  -0.013, 654.28,
+//            0.054, 958.48 , 367.44,
+//            0    ,   0    ,   1   ;
     // Matriz intrinseca com imagem em resolucao simplificada 480x270
     K4 << 241.60 ,  -0.025, 162.19,
             0.073, 240.91 ,  92.41,
             0    ,   0    ,   1   ;
     // Matriz extrinseca com imagem em HD
     Rt1.resize(3, 4);
-    Rt1 << 1, 0, 0, -0.011,
-           0, 1, 0,  0.029,
-           0, 0, 1,  0.027;
+    Rt1 << 1, 0, 0, params[ 9],
+           0, 1, 0, params[10],
+           0, 0, 1, params[11];
+//    Rt1 << 1, 0, 0, -0.011,
+//           0, 1, 0,  0.029,
+//           0, 0, 1,  0.027;
     // Matriz extrinseca com imagem em resolucao simplificada 480x270
     Rt4.resize(3, 4);
     Rt4 << 1, 0, 0,  0.035,
