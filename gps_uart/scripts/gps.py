@@ -15,44 +15,51 @@ gps = adafruit_gps.GPS(uart, debug=False)  # Use UART/pyserial
 
 ##############################
 def gps_publish():
+    global gps, uart
     ###### SETUP #########
     pub_gps = rospy.Publisher('/gps', NavSatFix, queue_size=10)
     rospy.init_node('gps_node', anonymous=False)
-    rate = rospy.Rate(20) # 20hz
+    rate = rospy.Rate(2) # 20hz
     # Main loop runs forever printing the location, etc. every second.
     last_print = time.monotonic()
     while not rospy.is_shutdown():
+        try:
+            gps.update()
+        except:
+            rospy.logwarn('Bad message reading. Lets discard and restart the serial connection.')
+            # Reset serial connection and gps entity. Start reading again
+            uart.close()
+            time.sleep(1)
+            uart = serial.Serial("/dev/ttyTHS1", baudrate=9600, timeout=10)
+            gps = adafruit_gps.GPS(uart, debug=False)  # Use UART/pyserial
+            gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
+            gps.send_command(b"PMTK220,1000")
+            
         # Every second print out current location details if there's a fix.
         current = time.monotonic()
-        if current - last_print >= 0.5:
+        if current - last_print >= 1.0:
             last_print = current
-
             # GPS message
             msg = NavSatFix()
             msg.header.frame_id = 'map'
             msg.header.stamp = rospy.Time.now()
-            status  = 0
-            service = 0
-
-            # Check new data
-            if gps.update() and gps.has_fix:
-                status = 1
-            if not gps.update() or not gps.has_3d_fix:
-                msg.latitude  = 0
-                msg.longitude = 0
-                msg.altitude  = 0
-            if gps.has_3d_fix:
+            msg.status.status  = 1
+            msg.status.service = 1
+            if gps.has_fix:
                 msg.latitude  = gps.latitude
                 msg.longitude = gps.longitude
                 msg.altitude  = gps.altitude_m
-                status = 2
-                service = gps.satellites
+            else:
+                msg.latitude  = 0
+                msg.longitude = 0
+                msg.altitude  = 0
 
-            msg.status.status  = status
-            msg.status.service = service
             # Publish message
             pub_gps.publish(msg)
-            rate.sleep()
+        rate.sleep()
+
+    # If connection is down, close the serial port
+    uart.close()
 
 ##############################
 if __name__ == '__main__':
