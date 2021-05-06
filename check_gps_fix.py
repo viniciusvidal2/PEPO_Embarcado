@@ -16,15 +16,15 @@ def check():
     gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
 
     # Set update rate to once a second (1hz) which is what you typically want.
-    gps.send_command(b"PMTK220,1000")
+    gps.send_command(b"PMTK220,200")
 
     # Acquire from GPS
-    for i in range(5):
+    for i in range(15):
         time.sleep(0.2)
         gps.update()
 
     # Check fix
-    fix = 'yes' if gps.has_fix else 'no'
+    fix = 'yes' if gps.has_3d_fix else 'no'
 
     uart.close()
 

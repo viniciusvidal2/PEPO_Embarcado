@@ -26,6 +26,7 @@ v4l2-ctl --set-ctrl=saturation=250
 v4l2-ctl --set-ctrl=white_balance_temperature=4000
 
 # Importar dependencias de ROS - workspaces
+sleep 5s
 source /opt/ros/melodic/setup.bash
 source /home/cap/pepo_ws/devel/setup.bash
 export ROS_IP=192.168.0.102

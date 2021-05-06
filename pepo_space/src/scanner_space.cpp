@@ -55,7 +55,7 @@ ros::ServiceClient comando_leds;
 // Posicao atual de aquisicao
 int indice_posicao = 0;
 // Raio de aceitacao de posicao angular
-int dentro_pan = 15, dentro_tilt = 30; // [RAW]
+int dentro_pan = 20, dentro_tilt = 35; // [RAW]
 // Flags de controle
 bool aquisitar_imagem_imu = false, mudando_vista = true, iniciar_laser = false;
 // Publicador de imagem, nuvem parcial e odometria

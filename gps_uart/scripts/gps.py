@@ -19,7 +19,7 @@ def gps_publish():
     ###### SETUP #########
     pub_gps = rospy.Publisher('/gps', NavSatFix, queue_size=10)
     rospy.init_node('gps_node', anonymous=False)
-    rate = rospy.Rate(2) # 20hz
+    rate = rospy.Rate(10) # 20hz
     # Main loop runs forever printing the location, etc. every second.
     last_print = time.monotonic()
     while not rospy.is_shutdown():
@@ -45,16 +45,18 @@ def gps_publish():
             msg.header.stamp = rospy.Time.now()
             msg.status.status  = 1
             msg.status.service = 1
-            if gps.has_fix:
+            if gps.has_3d_fix:
                 msg.latitude  = gps.latitude
                 msg.longitude = gps.longitude
                 msg.altitude  = gps.altitude_m
+                msg.status.status = 2
             else:
                 msg.latitude  = 0
                 msg.longitude = 0
                 msg.altitude  = 0
 
             # Publish message
+            print(f'Last GPS status: {msg.status.status:d}.')
             pub_gps.publish(msg)
         rate.sleep()
 
