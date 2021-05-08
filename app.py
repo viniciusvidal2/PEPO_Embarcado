@@ -10,6 +10,11 @@ import shutil
 
 from check_gps_fix import *
 
+# The code version for the CAP embedded software
+# Update here to let the user know in the app
+# some change was made in the Update process
+firmware_version = '1.1.2'
+
 global_ros_ip = '0.0.0.0'
 global_ros_port = 9090
 ros = roslibpy.Ros(host=global_ros_ip, port=global_ros_port)
@@ -175,7 +180,7 @@ def get_date():
 def post_date():
     data = request.get_json()
     param_date = data['dateStr']
-    os.system("sudo timedatectl set-ntp 0 && sudo timedatectl set-time '" + str(param_date) + "' && sudo hwclock -w")
+    os.system("echo 12 | sudo -S timedatectl set-ntp 0 && echo 12 | sudo -S timedatectl set-time '" + str(param_date) + "' && echo 12 | sudo -S hwclock -w")
 
     return jsonify(True)
 
@@ -288,10 +293,14 @@ def project_new():
 def check_fix():
     return jsonify(check())
 
+@app.route("/firmware_version", methods=["GET"])
+def get_firmware_version():
+    global firmware_version
+    return jsonify(firmware_version)
+
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify(time.time())
-
 
 # Ros
 @app.route('/ros/status', methods=['GET'])
