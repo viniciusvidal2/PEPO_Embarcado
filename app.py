@@ -123,11 +123,9 @@ def camera_force_kill():
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
     global global_image_camera
-    os.system('rosnode kill imagem_lr_app')
-    process = subprocess.Popen('rosnode kill multi_port_cap', shell=True, stdout=subprocess.PIPE)
-    process.wait()
-    process = subprocess.Popen('rosnode kill send_dynamixel_to_zero', shell=True, stdout=subprocess.PIPE)
-    process.wait()
+    os.system('rosnode kill imagem_lr_app')    
+    os.system('rosnode kill multi_port_cap')
+    os.system('rosnode kill send_dynamixel_to_zero')
     process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
     process.wait()
     global_image_camera = ''
@@ -156,6 +154,8 @@ def camera_stop():
     print('global_scan_state')
     print(global_scan_state)
 
+    os.system('rosnode kill multi_port_cap')
+    os.system('rosnode kill send_dynamixel_to_zero')
     if not global_camera_state and not global_scan_state:
         camera_kill()
 
@@ -282,6 +282,7 @@ def project_new():
     camera_stop()
 
     if tipo_int == 0:
+        time.sleep(5)
         subprocess.Popen([f'roslaunch pepo_space pepo_space.launch pasta:={nome_str}'], shell=True)
     else:
         subprocess.Popen([f'roslaunch pepo_obj pepo_obj.launch pasta:={nome_str}'], shell=True)
