@@ -20,10 +20,10 @@ echo 12 | sudo -S chmod a+rw /dev/ttyTHS2
 v4l2-ctl --set-ctrl=exposure_auto=1
 v4l2-ctl --set-ctrl=white_balance_temperature_auto=0
 v4l2-ctl --set-ctrl=exposure_absolute=8
-v4l2-ctl --set-ctrl=brightness=230
+v4l2-ctl --set-ctrl=brightness=150
 v4l2-ctl --set-ctrl=backlight_compensation=0
-v4l2-ctl --set-ctrl=saturation=250
-v4l2-ctl --set-ctrl=white_balance_temperature=4000
+v4l2-ctl --set-ctrl=saturation=160
+v4l2-ctl --set-ctrl=white_balance_temperature=5200
 
 # Importar dependencias de ROS - workspaces
 sleep 5s
@@ -38,11 +38,11 @@ sleep 10s
 
 rosparam set exposure_auto 1
 rosparam set white_balance_temperature_auto 0
-rosparam set exposure_absolute 1250
-rosparam set brightness 100
+rosparam set exposure_absolute 8
+rosparam set brightness 150
 rosparam set backlight_compensation 0
-rosparam set saturation 200
-rosparam set white_balance_temperature 4000
+rosparam set saturation 160
+rosparam set white_balance_temperature 5200
 
 # Chamar o servidor flask para o aplicativo
 export FLASK_APP=~/pepo_ws/src/PEPO_Embarcado/app.py

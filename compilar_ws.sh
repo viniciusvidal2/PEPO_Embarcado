@@ -11,25 +11,25 @@ catkin_make --pkg cv_camera dynamixel_workbench_controllers dynamixel_workbench_
 sleep 1s
 
 # Compilar pacote de comunicacao
-catkin_make --pkg communication
+catkin_make -j1 --pkg communication
 
 # Dormir um pouco para esperar iniciar
 sleep 1s
 
 # Compilar pacote de comunicacao
-catkin_make --pkg pepo_obj
+catkin_make -j1 --pkg pepo_obj
 
 # Dormir um pouco para esperar iniciar
 sleep 1s
 
 # Compilar pacote de comunicacao
-catkin_make --pkg pepo_space
+catkin_make -j1 --pkg pepo_space
 
 # Dormir um pouco para esperar iniciar
 sleep 1s
 
 # Compilar pacote de comunicacao
-catkin_make --pkg fog
+catkin_make -j1 --pkg fog
 
 # Dormir um pouco para esperar iniciar
 sleep 1s
@@ -41,4 +41,4 @@ catkin_make --pkg rosbridge_server rosbridge_msgs rosbridge_library rosbridge_su
 sleep 1s
 
 # Pacote do loam livox para horizon
-catkin_make --pkg loam_horizon
+catkin_make -j1 --pkg loam_horizon

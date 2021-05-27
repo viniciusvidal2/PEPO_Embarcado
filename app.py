@@ -13,7 +13,7 @@ from check_gps_fix import *
 # The code version for the CAP embedded software
 # Update here to let the user know in the app
 # some change was made in the Update process
-firmware_version = '1.1.2'
+firmware_version = '1.1.3'
 
 global_ros_ip = '0.0.0.0'
 global_ros_port = 9090
