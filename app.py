@@ -123,11 +123,10 @@ def camera_force_kill():
 @app.route("/camera/kill", methods=['POST'])
 def camera_kill():
     global global_image_camera
-    os.system('rosnode kill imagem_lr_app')    
-    os.system('rosnode kill multi_port_cap')
-    os.system('rosnode kill send_dynamixel_to_zero')
-    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
-    process.wait()
+    os.system('rosnode kill imagem_lr_app')
+    os.system('rosnode kill camera')
+#    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
+#    process.wait()
     global_image_camera = ''
     return jsonify(True)
 
@@ -154,9 +153,9 @@ def camera_stop():
     print('global_scan_state')
     print(global_scan_state)
 
-    os.system('rosnode kill multi_port_cap')
-    os.system('rosnode kill send_dynamixel_to_zero')
-    if not global_camera_state and not global_scan_state:
+    if not global_camera_state and not global_scan_state:        
+        os.system('rosnode kill multi_port_cap')
+        os.system('rosnode kill send_dynamixel_to_zero')
         camera_kill()
 
     return jsonify(True)
@@ -279,7 +278,11 @@ def project_new():
     nome_str = data['nomeStr']
     tipo_int = data['tipoInt']
 
-    camera_stop()
+    #camera_stop()
+    os.system('rosnode kill multi_port_cap')
+    os.system('rosnode kill send_dynamixel_to_zero')
+    #os.system('rosnode kill imagem_lr_app')
+    #os.system('rosnode kill camera')
 
     if tipo_int == 0:
         time.sleep(5)
