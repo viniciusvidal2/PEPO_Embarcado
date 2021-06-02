@@ -13,7 +13,20 @@ from check_gps_fix import *
 # The code version for the CAP embedded software
 # Update here to let the user know in the app
 # some change was made in the Update process
-firmware_version = '1.1.3'
+firmware_version = '1.1.5'
+
+# Method to find the space used in a folder
+# Will be used to get available memory to work with
+def get_size(start_path='.'):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+
+    return total_size
 
 global_ros_ip = '0.0.0.0'
 global_ros_port = 9090
@@ -35,7 +48,6 @@ global_scan_state_topic = roslibpy.Topic(ros, '/scan_state', 'std_msgs/Bool')
 
 app = Flask(__name__)
 cors = CORS(app)
-
 
 @app.route("/")
 def get_default_route():
@@ -125,8 +137,6 @@ def camera_kill():
     global global_image_camera
     os.system('rosnode kill imagem_lr_app')
     os.system('rosnode kill camera')
-#    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
-#    process.wait()
     global_image_camera = ''
     return jsonify(True)
 
@@ -278,11 +288,8 @@ def project_new():
     nome_str = data['nomeStr']
     tipo_int = data['tipoInt']
 
-    #camera_stop()
     os.system('rosnode kill multi_port_cap')
     os.system('rosnode kill send_dynamixel_to_zero')
-    #os.system('rosnode kill imagem_lr_app')
-    #os.system('rosnode kill camera')
 
     if tipo_int == 0:
         time.sleep(5)
@@ -309,10 +316,13 @@ def ping():
 # Ros
 @app.route('/ros/status', methods=['GET'])
 def ros_status():
+
     st = os.statvfs('/')
     free = st.f_bavail * st.f_frsize
-    total = st.f_blocks * st.f_frsize
-    used = (st.f_blocks - st.f_bfree) * st.f_frsize
+    used  = get_size('/home/cap/Desktop/')
+    total = free + used
+    used_pct = 100 * used / total if 100 * used / total > 1 else 0
+    print('used: %.2f  total: %.2f  used_pct: %.2f'%(used, total, used_pct))
 
     data = {
         'is_ros_connected_bool': ros.is_connected,
@@ -321,7 +331,7 @@ def ros_status():
         'free': round(free, 2),
         'total': round(total, 2),
         'used': round(used, 2),
-        'used_percent': round(100 * used / total, 2)
+        'used_percent': round(used_pct, 2)
     }
 
     return jsonify(data)
