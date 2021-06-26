@@ -96,7 +96,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             // Imagem virtual iniciada
             Mat virtual_image(Size(imptr->image.cols, imptr->image.rows), CV_8UC3, Scalar(0, 0, 0));
             pc->getVirtualImage(cloud_im_virtual, imptr->image, virtual_image, 1);
-            resize(virtual_image, virtual_image, Size(320, 180));
+            resize(virtual_image, virtual_image, Size(320, 180), cv::INTER_CUBIC);
             // Poupar memoria da parcial
             cloud_im_virtual->clear();
 
