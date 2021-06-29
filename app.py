@@ -13,7 +13,7 @@ from check_gps_fix import *
 # The code version for the CAP embedded software
 # Update here to let the user know in the app
 # some change was made in the Update process
-firmware_version = '1.1.6'
+firmware_version = '1.1.7'
 
 # Method to find the space used in a folder
 # Will be used to get available memory to work with
@@ -48,6 +48,7 @@ global_scan_state_topic = roslibpy.Topic(ros, '/scan_state', 'std_msgs/Bool')
 
 app = Flask(__name__)
 cors = CORS(app)
+
 
 @app.route("/")
 def get_default_route():
@@ -136,7 +137,8 @@ def camera_force_kill():
 def camera_kill():
     global global_image_camera
     os.system('rosnode kill imagem_lr_app')
-    os.system('rosnode kill camera')
+    process = subprocess.Popen('rosnode kill camera', shell=True, stdout=subprocess.PIPE)
+    process.wait()
     global_image_camera = ''
     return jsonify(True)
 
@@ -163,7 +165,7 @@ def camera_stop():
     print('global_scan_state')
     print(global_scan_state)
 
-    if not global_camera_state and not global_scan_state:        
+    if global_camera_state and not global_scan_state:
         os.system('rosnode kill multi_port_cap')
         os.system('rosnode kill send_dynamixel_to_zero')
         camera_kill()
@@ -288,11 +290,10 @@ def project_new():
     nome_str = data['nomeStr']
     tipo_int = data['tipoInt']
 
-    os.system('rosnode kill multi_port_cap')
-    os.system('rosnode kill send_dynamixel_to_zero')
+    camera_stop()
 
     if tipo_int == 0:
-        time.sleep(5)
+        time.sleep(10)
         subprocess.Popen([f'roslaunch pepo_space pepo_space.launch pasta:={nome_str}'], shell=True)
     else:
         subprocess.Popen([f'roslaunch pepo_obj pepo_obj.launch pasta:={nome_str}'], shell=True)
@@ -316,13 +317,13 @@ def ping():
 # Ros
 @app.route('/ros/status', methods=['GET'])
 def ros_status():
-
     st = os.statvfs('/')
     free = st.f_bavail * st.f_frsize
-    used  = get_size('/home/cap/Desktop/')
+    used = get_size('/home/cap/Desktop/')
     total = free + used
-    used_pct = 100 * used / total if 100 * used / total > 1 else 0
-    print('used: %.2f  total: %.2f  used_pct: %.2f'%(used, total, used_pct))
+    used_pct = 100.0 * float(used) / float(total) if 100.0 * float(used) / float(total) > 1 else 0.5
+
+    print('used: %.2f total: %.2f free: %.2f used_pct: (%.2f)'%(used, total, free, used_pct))
 
     data = {
         'is_ros_connected_bool': ros.is_connected,

@@ -305,7 +305,7 @@ void ProcessCloud::getVirtualImage(PointCloud<PointXYZ>::Ptr cloud_in, Mat image
             // Adicionando ponto na imagem virtual se for o caso de projetado corretamente
             if(floor(X(0,0)) > 0 && floor(X(0,0)) < image.cols && floor(X(1,0)) > 0 && floor(X(1,0)) < image.rows){
                 cv::Vec3b cor = image.at<Vec3b>(Point(X(0,0), X(1,0)));
-                iv.at<Vec3b>(Point(X(0,0), X(1,0))) = cor;
+                iv.at<Vec3b>( Point(int(X(0,0)/4), int(X(1,0)/4)) ) = cor;
             }
         }
     }
