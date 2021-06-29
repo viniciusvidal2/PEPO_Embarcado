@@ -18,22 +18,27 @@ void LivoxMsgCbk1(const livox_ros_driver::CustomMsgConstPtr& livox_msg_in) {
     auto& livox_msg = livox_data[0];
     auto time_end = livox_msg->points.back().offset_time;
 
+#pragma omp parallel for
     for (unsigned int i = 0; i < livox_msg->point_num; ++i) {
-        if(livox_msg->points[i].x < 20){
-            PointType pt;
+        PointType pt;
+        if(livox_msg->points[i].x < 40){
             pt.x = livox_msg->points[i].x;
             pt.y = livox_msg->points[i].y;
             pt.z = livox_msg->points[i].z;
-            //      if (pt.z < -0.3) continue; // delete some outliers (our Horizon's assembly height is 0.3 meters)
-            float s = livox_msg->points[i].offset_time / (float)time_end;
-            //       ROS_INFO("_s-------- %.6f ",s);
-            pt.intensity = livox_msg->points[i].line + s*0.1; // The integer part is line number and the decimal part is timestamp
-            //      ROS_INFO("intensity-------- %.6f ",pt.intensity);
-            pt.curvature = livox_msg->points[i].reflectivity * 0.1;
-            // ROS_INFO("pt.curvature-------- %.3f ",pt.curvature);
-            //pcl_in.push_back(pt);
-            pcl_in.push_back(pt);
+        }else{
+            pt.x = 0;
+            pt.y = 0;
+            pt.z = 0;
         }
+        //      if (pt.z < -0.3) continue; // delete some outliers (our Horizon's assembly height is 0.3 meters)
+        float s = livox_msg->points[i].offset_time / (float)time_end;
+        //       ROS_INFO("_s-------- %.6f ",s);
+        pt.intensity = livox_msg->points[i].line + s*0.1; // The integer part is line number and the decimal part is timestamp
+        //      ROS_INFO("intensity-------- %.6f ",pt.intensity);
+        pt.curvature = livox_msg->points[i].reflectivity * 0.1;
+        // ROS_INFO("pt.curvature-------- %.3f ",pt.curvature);
+        //pcl_in.push_back(pt);
+        pcl_in.points[i] = pt;
     }
     //  }
     
