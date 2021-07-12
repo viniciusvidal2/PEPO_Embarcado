@@ -85,7 +85,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
 
         if(cont_imagem_virtual == 5){ // Se inteirar 5, ja projeta -> mais rapido a experiencia
 
-            m.lock();
+//            m.lock();
 
             // Transformando nuvem para o frame da camera
             pc->transformToCameraFrame(cloud_im_virtual);
@@ -99,7 +99,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg){
             cloud_im_virtual->clear();
 
             aquisitar_imagem = true;
-            m.unlock();
+//            m.unlock();
 
             // Publicar imagem virtual
             cv_bridge::CvImage msg_out;
@@ -134,7 +134,11 @@ int main(int argc, char **argv)
     ros::Subscriber im_sub = nh.subscribe("/camera/image_raw", 10, imagemCallback);
     ros::Subscriber cl_sub = nh.subscribe("/cloud_virtual_image", 10, cloudCallback);
 
-    ros::spin();
+    ros::Rate r(3);
+    while(ros::ok()){
+        r.sleep();
+        ros::spinOnce();
+    }
 
     return 0;
 }

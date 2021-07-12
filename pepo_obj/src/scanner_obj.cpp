@@ -233,7 +233,8 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
             // Aguardar atualizacao da odometria
             float remaining_time = abs((stamp_ref_laser - stamp_ref_loam).toSec()), stamp_dif = remaining_time;
             std_msgs::Float32 msg_feedback;
-            //ROS_INFO("Temos aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", stamp_ref_laser.toSec(), stamp_ref_loam.toSec(), (stamp_ref_laser - stamp_ref_loam).toSec());
+//            ROS_INFO("Temos aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", stamp_ref_laser.toSec(), stamp_ref_loam.toSec(), (stamp_ref_laser - stamp_ref_loam).toSec());
+            m.lock();
             while(abs((stamp_ref_laser - stamp_ref_loam).toSec()) >= 1 && stamp_ref_laser.toSec() > stamp_ref_loam.toSec()){
 //                ROS_WARN("AGUARDANDO aqui a diferenca de stamps  LASER: %.2f   ODOM: %.2f   DIFF: %.2f", stamp_ref_laser.toSec(), stamp_ref_loam.toSec(), (stamp_ref_laser - stamp_ref_loam).toSec());
 //                if(abs(stamp_dif - (stamp_ref_laser - stamp_ref_loam).toSec()) > 1){
@@ -241,9 +242,10 @@ void laserCallback(const livox_ros_driver::CustomMsgConstPtr& msg){
 //                    msg_feedback.data = ((75 + 25*(1 - stamp_dif/remaining_time)) < 100) ? 75 + 25*(1 - stamp_dif/remaining_time) : 99;
 //                    feedback_pub.publish(msg_feedback);
 //                }
-                do_sleep((stamp_ref_laser - stamp_ref_loam).toSec());
+//                do_sleep((stamp_ref_laser - stamp_ref_loam).toSec());
                 ros::spinOnce();
             }
+            m.unlock();
 
             // Renovar a odometria com a referencia anterior e transformar a nuvem
             Todo = Tref*Tloam;
@@ -323,6 +325,9 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         int ans = system("nohup roslaunch dynamixel_workbench_controllers multi_port_cap.launch &");
         servos_locked = false;
 
+        // Mandar salvar o tempo de ordem de aquisicao, vai contar sem os adiamentos que se seguem
+        aquisitando = true;
+
         // Mensagem fake para o aplicativo ser notificado de aquisicao
         std_msgs::Float32 msg_feedback;
         msg_feedback.data = 5;
@@ -335,7 +340,6 @@ bool capturar_obj(pepo_obj::comandoObj::Request &req, pepo_obj::comandoObj::Resp
         msg_feedback.data = 15;
         feedback_pub.publish(msg_feedback);
 
-        aquisitando = true;
 
         ROS_INFO("Realizando aquisicao na posicao %d ...", cont_aquisicao+1);
         res.result = 1;
@@ -412,7 +416,7 @@ int main(int argc, char **argv)
     sub_loam = nh.subscribe("/aft_mapped_to_init", 100, loamCallback );
 
     // Ver se realmente ha odometria
-    ros::Rate r(2);
+    ros::Rate r(20);
     while(sub_loam.getNumPublishers() < 1 && sub_cam.getNumPublishers() < 1){
         ROS_INFO("Aguardando odometria segura vinda da LOAM ...");
         r.sleep();
