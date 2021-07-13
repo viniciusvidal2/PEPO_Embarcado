@@ -13,7 +13,7 @@ from check_gps_fix import *
 # The code version for the CAP embedded software
 # Update here to let the user know in the app
 # some change was made in the Update process
-firmware_version = '1.1.7'
+firmware_version = '1.2.0'
 
 # Method to find the space used in a folder
 # Will be used to get available memory to work with
